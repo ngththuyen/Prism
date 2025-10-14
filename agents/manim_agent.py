@@ -742,12 +742,10 @@ class {class_name}(Scene):
             scene_plans = []
             for plan_data in response_json.get("scene_plans", []):
                 try:
-                    # Loại bỏ hoàn toàn 'easing' khỏi parameters của mọi action
+                    # Loại bỏ hoàn toàn 'easing' ở mọi cấp trong parameters của mọi action
                     for action in plan_data.get('actions', []):
-                        if 'parameters' in action and isinstance(action['parameters'], dict):
-                            if 'easing' in action['parameters']:
-                                self.logger.debug(f"Removing 'easing' from action parameters: {action['parameters']['easing']}")
-                                del action['parameters']['easing']
+                        if 'parameters' in action:
+                            remove_easing_key(action['parameters'])
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
                 except Exception as e:
@@ -1147,3 +1145,14 @@ class {class_name}(Scene):
     #   easing = parameters['easing']
     # bằng:
     #   easing = get_easing(parameters)
+
+def remove_easing_key(obj):
+    """Đệ quy loại bỏ mọi trường 'easing' trong dict hoặc list lồng nhau."""
+    if isinstance(obj, dict):
+        if 'easing' in obj:
+            del obj['easing']
+        for k, v in obj.items():
+            remove_easing_key(v)
+    elif isinstance(obj, list):
+        for item in obj:
+            remove_easing_key(item)
