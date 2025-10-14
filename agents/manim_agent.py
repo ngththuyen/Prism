@@ -4,6 +4,7 @@ import re
 import json
 import tempfile
 import subprocess
+import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -16,6 +17,14 @@ from agents.manim_models import (
     AnimationResult, AnimationConfig, AnimationMetadata
 )
 from rendering.manim_renderer import ManimRenderer
+
+# Ensure UTF-8 encoding for stdout/stderr and logging
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
+logging.basicConfig(encoding='utf-8')
 
 
 class ManimAgent(BaseAgent):
@@ -1123,3 +1132,12 @@ class {class_name}(Scene):
             "config": self.config.model_dump(),
             "renderer_status": "ready" if self.renderer.validate_manim_installation() else "not_ready"
         }
+
+    # Example fix for accessing 'easing' in scene plan actions:
+    def get_easing(parameters):
+        return parameters.get('easing', 'linear') if isinstance(parameters, dict) else 'linear'
+
+    # In your code where you use 'easing', replace:
+    #   easing = parameters['easing']
+    # bằng:
+    #   easing = get_easing(parameters)
