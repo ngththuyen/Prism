@@ -41,13 +41,81 @@ class BaseTTSSynthesizer(ABC):
         api_key: str,
         output_dir: Path,
         max_retries: int = 3,
-        timeout: int = 120
+        timeout: int = 120,
+        backoff_factor: float = 2.0
     ):
         self.api_key = api_key
         self.output_dir = Path(output_dir)
         self.max_retries = max_retries
         self.timeout = timeout
+        self.backoff_factor = backoff_factor
         self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # Create cache directory for audio segments
+        self.cache_dir = Path("cache") / "audio"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+    def _get_cache_key(self, text: str, voice_settings: Dict[str, Any]) -> str:
+        """Generate a cache key from text and voice settings"""
+        settings_str = '_'.join(f"{k}={v}" for k, v in sorted(voice_settings.items()))
+        return f"{hash(text)}_{hash(settings_str)}"
+
+    def _get_from_cache(self, cache_key: str) -> Optional[AudioResult]:
+        """Try to get synthesized audio from cache"""
+        cache_file = self.cache_dir / f"{cache_key}.json"
+        if cache_file.exists():
+            try:
+                result = AudioResult.parse_file(cache_file)
+                # Verify audio file still exists
+                if result.audio_path and Path(result.audio_path).exists():
+                    self.logger.info(f"Cache hit for key: {cache_key}")
+                    return result
+            except Exception as e:
+                self.logger.warning(f"Failed to load cache: {str(e)}")
+        return None
+
+    def _save_to_cache(self, cache_key: str, result: AudioResult):
+        """Save synthesized audio result to cache"""
+        try:
+            cache_file = self.cache_dir / f"{cache_key}.json"
+            cache_file.write_text(result.json(), encoding='utf-8')
+            self.logger.info(f"Saved to cache: {cache_key}")
+        except Exception as e:
+            self.logger.warning(f"Failed to save to cache: {str(e)}")
+
+    def synthesize_with_retry(self, text: str, voice_settings: Dict[str, Any]) -> AudioResult:
+        """Synthesize audio with retry logic and caching"""
+        cache_key = self._get_cache_key(text, voice_settings)
+        
+        # Try cache first
+        cached_result = self._get_from_cache(cache_key)
+        if cached_result:
+            return cached_result
+
+        # Attempt synthesis with retries
+        start_time = time.time()
+        last_error = None
+        
+        for attempt in range(self.max_retries):
+            try:
+                result = self.synthesize(text, voice_settings)
+                if result.success:
+                    result.generation_time = time.time() - start_time
+                    self._save_to_cache(cache_key, result)
+                    return result
+            except Exception as e:
+                last_error = str(e)
+                wait_time = self.backoff_factor ** attempt
+                self.logger.warning(f"Attempt {attempt + 1} failed: {str(e)}")
+                if attempt < self.max_retries - 1:
+                    time.sleep(wait_time)
+
+        # All retries failed
+        return AudioResult(
+            success=False,
+            error_message=f"All retries failed. Last error: {last_error}",
+            generation_time=time.time() - start_time
+        )
         self._setup_directories()
 
     @abstractmethod

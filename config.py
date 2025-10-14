@@ -6,11 +6,44 @@ from typing import Optional, Any
 
 
 class Settings(BaseSettings):
-    # API Keys (optional at startup; validated at use time)
+    # API Keys
     openrouter_api_key: Optional[str] = None
     google_api_key: Optional[str] = None
     elevenlabs_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Create necessary directories
+        self.output_dir.mkdir(exist_ok=True)
+        Path("cache").mkdir(exist_ok=True)
+        Path("temp").mkdir(exist_ok=True)
+
+    @validator('tts_provider')
+    def validate_tts_provider(cls, v, values):
+        if v not in ['elevenlabs', 'openai']:
+            raise ValueError('Invalid TTS provider. Must be either "elevenlabs" or "openai"')
+        
+        # Validate required API keys based on provider
+        if v == 'elevenlabs' and not values.get('elevenlabs_api_key'):
+            raise ValueError('ElevenLabs API key required when using ElevenLabs provider')
+        if v == 'openai' and not values.get('openai_api_key'):
+            raise ValueError('OpenAI API key required when using OpenAI provider')
+        
+        return v
+
+    @validator('llm_provider')
+    def validate_llm_provider(cls, v, values):
+        if v not in ['google', 'openrouter']:
+            raise ValueError('Invalid LLM provider. Must be either "google" or "openrouter"')
+        
+        # Validate required API keys based on provider
+        if v == 'google' and not values.get('google_api_key'):
+            raise ValueError('Google API key required when using Google provider')
+        if v == 'openrouter' and not values.get('openrouter_api_key'):
+            raise ValueError('OpenRouter API key required when using OpenRouter provider')
+        
+        return v
 
     # OpenRouter Configuration
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
