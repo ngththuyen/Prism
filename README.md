@@ -43,7 +43,7 @@ choco install miktex
 
 ### Tải mã nguồn và cài thư viện Python
 ```bash
-git clone <link_repo_cua_ban>
+git clone https://github.com/ngththuyen/Prism.git
 cd Prism
 
 python -m venv .venv
