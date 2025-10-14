@@ -10,7 +10,7 @@ from pathlib import Path
 
 pipeline = Pipeline()
 
-def generate_animation(concept: str, language: str = "Vietnamese", progress=gr.Progress()):
+def generate_animation(concept: str, language: str = "Vietnamese", duration_preset: str = "Ngắn (~30s)", progress=gr.Progress()):
     """
     Main generation function called by Gradio
 
@@ -28,7 +28,12 @@ def generate_animation(concept: str, language: str = "Vietnamese", progress=gr.P
     def update_progress(message: str, percentage: float):
         progress(percentage, desc=message)
     
-    result = pipeline.run(concept, progress_callback=update_progress, target_language=language)
+    result = pipeline.run(
+        concept,
+        progress_callback=update_progress,
+        target_language=language,
+        duration_preset=duration_preset
+    )
     
     if result["status"] == "success" and result.get("video_result"):
         video_path = result["video_result"]["output_path"]
@@ -55,6 +60,11 @@ with gr.Blocks(title="Prism") as demo:
                 value="Vietnamese",
                 label="Ngôn ngữ thuyết minh"
             )
+            duration_dropdown = gr.Dropdown(
+                choices=["Ngắn (~30s)", "Trung bình (~60s)", "Dài (~120s)"],
+                value="Ngắn (~30s)",
+                label="Thời lượng video"
+            )
             generate_btn = gr.Button("Tạo video", variant="primary")
         
     with gr.Row():
@@ -74,7 +84,7 @@ with gr.Blocks(title="Prism") as demo:
     
     generate_btn.click(
         fn=generate_animation,
-        inputs=[concept_input, language_dropdown],
+        inputs=[concept_input, language_dropdown, duration_dropdown],
         outputs=video_output
     )
 

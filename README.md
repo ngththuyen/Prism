@@ -77,6 +77,13 @@ Trình bày Định lý Bayes trong chẩn đoán y khoa
 Giải thích trực quan Gradient Descent
 ```
 
+### Tuỳ chọn thời lượng video
+- Chọn "Thời lượng video":
+  - Ngắn (~30s): 2–3 cảnh ngắn, render nhanh.
+  - Trung bình (~60s): 3–5 cảnh, cân bằng tốc độ/chất lượng.
+  - Dài (~120s): 4–8 cảnh, nội dung chi tiết hơn.
+Prism sẽ phân phối độ dài cảnh theo tổng thời lượng mục tiêu để giảm thời gian chờ khi chọn video ngắn.
+
 ---
 
 ## Cấu hình quan trọng (`config.py`)

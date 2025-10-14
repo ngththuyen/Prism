@@ -65,7 +65,10 @@ class ManimAgent(BaseAgent):
 
 1. **Scene Structure**:
    - Create 1–2 scenes per sub-concept (maximum 8 scenes total)
-   - Each scene should be 30–45 seconds long
+   - Target total video duration ≈ {total_target_duration}s; scale the number of scenes and each scene length accordingly.
+   - For short videos (~30s): prefer 2–3 compact scenes, each 8–12s.
+   - For medium (~60s): 3–5 scenes, each 12–20s.
+   - For long (~120s): 4–8 scenes, each 20–30s.
    - Build scenes logically following sub-concept dependencies
    - Start with foundations, progressively add complexity
 
@@ -714,7 +717,7 @@ class {class_name}(Scene):
 
         try:
             response_json = self._call_llm_structured(
-                system_prompt=self.SCENE_PLANNING_PROMPT,
+                system_prompt=self.SCENE_PLANNING_PROMPT.format(total_target_duration=self.config.total_video_duration_target),
                 user_message=user_message,
                 temperature=self.config.temperature,
                 max_retries=3
@@ -775,10 +778,15 @@ class {class_name}(Scene):
                 self.logger.debug(f"First action parameters: {scene_plan.actions[0].parameters if scene_plan.actions else 'N/A'}")
 
                 try:
+                    # Compute per-scene target duration from config
+                    # Roughly distribute total target across planned scenes with a small buffer
+                    num_scenes = max(len(scene_plans), 1)
+                    per_scene = max(6, min(self.config.max_scene_duration, int(self.config.total_video_duration_target / num_scenes)))
+
                     formatted_prompt = self.CODE_GENERATION_PROMPT.format(
                         scene_plan=scene_plan_json,
                         class_name=class_name,
-                        target_duration="25-30"
+                        target_duration=str(per_scene)
                     )
                     self.logger.debug(f"System prompt formatted successfully, length: {len(formatted_prompt)}")
                 except Exception as fmt_error:
