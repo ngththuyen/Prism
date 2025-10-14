@@ -742,13 +742,12 @@ class {class_name}(Scene):
             scene_plans = []
             for plan_data in response_json.get("scene_plans", []):
                 try:
-                    # Defensive: Remove or fix 'easing' in all actions
+                    # Loại bỏ hoàn toàn 'easing' khỏi parameters của mọi action
                     for action in plan_data.get('actions', []):
                         if 'parameters' in action and isinstance(action['parameters'], dict):
-                            # Nếu 'easing' không phải string hợp lệ, loại bỏ hoặc gán mặc định
                             if 'easing' in action['parameters']:
-                                if not isinstance(action['parameters']['easing'], str) or not action['parameters']['easing']:
-                                    action['parameters']['easing'] = 'linear'
+                                self.logger.debug(f"Removing 'easing' from action parameters: {action['parameters']['easing']}")
+                                del action['parameters']['easing']
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
                 except Exception as e:
