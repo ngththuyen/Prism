@@ -716,8 +716,14 @@ class {class_name}(Scene):
         user_message = f"Analyze this STEM concept and create scene plans:\n\n{json.dumps(concept_analysis.model_dump(), indent=2)}"
 
         try:
+            # Format system prompt with both total target duration and embedded concept analysis
+            formatted_system_prompt = self.SCENE_PLANNING_PROMPT.format(
+                total_target_duration=self.config.total_video_duration_target,
+                concept_analysis=json.dumps(concept_analysis.model_dump(), indent=2)
+            )
+
             response_json = self._call_llm_structured(
-                system_prompt=self.SCENE_PLANNING_PROMPT.format(total_target_duration=self.config.total_video_duration_target),
+                system_prompt=formatted_system_prompt,
                 user_message=user_message,
                 temperature=self.config.temperature,
                 max_retries=3

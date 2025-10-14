@@ -27,8 +27,8 @@ class Pipeline:
 
         # Initialize agents
         self.concept_interpreter = ConceptInterpreterAgent(
-            api_key=settings.openrouter_api_key,
-            base_url=settings.openrouter_base_url,
+            api_key=settings.google_api_key,
+            base_url="",
             model=settings.reasoning_model,
             reasoning_tokens=settings.interpreter_reasoning_tokens,
             reasoning_effort=settings.interpreter_reasoning_effort
@@ -48,8 +48,8 @@ class Pipeline:
         )
 
         self.manim_agent = ManimAgent(
-            api_key=settings.openrouter_api_key,
-            base_url=settings.openrouter_base_url,
+            api_key=settings.google_api_key,
+            base_url="",
             model=settings.reasoning_model,
             output_dir=settings.output_dir,
             config=animation_config,

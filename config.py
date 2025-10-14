@@ -15,8 +15,13 @@ class Settings(BaseSettings):
     # OpenRouter Configuration
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
-    # Model Selection (OpenRouter model IDs)
-    reasoning_model: str = "anthropic/claude-sonnet-4.5"
+    # LLM Provider Selection: "google" (Gemini) or "openrouter"
+    llm_provider: str = "google"
+
+    # Model Selection
+    # If llm_provider == "google": use Gemini model IDs
+    # If llm_provider == "openrouter": use OpenRouter model IDs
+    reasoning_model: str = "gemini-2.0-pro"
     multimodal_model: str = "gemini-2.5-pro"
 
     # TTS Provider Selection
