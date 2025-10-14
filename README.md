@@ -1,35 +1,3 @@
-# STEMViz
-
-**AI-powered STEM concept visualizer that generates narrated educational animations using Manim, LLMs, and multimodal AI.**
-
-Transform complex STEM concepts into engaging, narrated video animations with just a text description. STEMViz uses a multi-agent pipeline to:
-1. Analyze and break down concepts into sub-concepts
-2. Plan and generate Manim animation code
-3. Render individual scenes and concatenate them
-4. Generate timestamped narration scripts using multimodal LLMs
-5. Synthesize natural speech audio
-6. Compose final video with synchronized narration
-
----
-
-## Features
-
-- 🎬 **Automated Animation Generation**: Convert STEM concepts to Manim animations
-- 🧠 **Multi-Agent Architecture**: Concept interpreter + Manim code generator agents
-- 🎙️ **AI Narration**: Multimodal LLM analyzes video and generates contextual narration
-- 🔊 **Text-to-Speech**: High-quality voice synthesis via ElevenLabs
-- ⚡ **Parallel Processing**: Concurrent scene code generation for faster output
-- 🎨 **Gradio Web Interface**: Simple browser-based UI for easy interaction
-- 🧹 **Auto Cleanup**: Removes temporary files after successful generation
-
----
-
-## Demo
-
-https://github.com/qnguyen3/STEMViz
-
----
-
 ## Installation
 
 ### Prerequisites
