@@ -174,8 +174,11 @@ Dự án sử dụng giấy phép phi thương mại. Xem chi tiết trong `LICE
 
 ---
 
-## Góp ý & liên hệ
-- Vui lòng mở issue hoặc PR để đóng góp tính năng/sửa lỗi.
-- Chạy xem trước UI: `python app.py`.
+@software{stemviz2025,
+  author = {Nguyen, Quan},
+  title = {STEMViz: AI-Powered STEM Concept Visualizer},
+  year = {2025},
+  url = {https://github.com/qnguyen3/STEMViz}
+}
 
-Nếu Prism hữu ích, hãy gắn ⭐ cho repo nhé!
+
