@@ -27,6 +27,23 @@ except Exception:
 logging.basicConfig(encoding='utf-8')
 
 
+def remove_easing_key(parameters: dict) -> None:
+    """
+    Recursively removes 'easing' key from a dictionary and all nested dictionaries.
+    
+    Args:
+        parameters: Dictionary to remove 'easing' key from
+    """
+    if isinstance(parameters, dict):
+        parameters.pop('easing', None)
+        for value in parameters.values():
+            if isinstance(value, (dict, list)):
+                remove_easing_key(value)
+    elif isinstance(parameters, list):
+        for item in parameters:
+            if isinstance(item, (dict, list)):
+                remove_easing_key(item)
+
 class ManimAgent(BaseAgent):
     """
     Manim Agent: Transforms structured concept analysis into visual animations
