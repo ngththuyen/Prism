@@ -742,11 +742,13 @@ class {class_name}(Scene):
             scene_plans = []
             for plan_data in response_json.get("scene_plans", []):
                 try:
-                    # Defensive: Remove any unknown keys that may cause errors
+                    # Defensive: Remove or fix 'easing' in all actions
                     for action in plan_data.get('actions', []):
                         if 'parameters' in action and isinstance(action['parameters'], dict):
-                            if 'easing' in action['parameters'] and not action['parameters']['easing']:
-                                action['parameters']['easing'] = 'linear'
+                            # Nếu 'easing' không phải string hợp lệ, loại bỏ hoặc gán mặc định
+                            if 'easing' in action['parameters']:
+                                if not isinstance(action['parameters']['easing'], str) or not action['parameters']['easing']:
+                                    action['parameters']['easing'] = 'linear'
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
                 except Exception as e:
