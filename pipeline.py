@@ -26,8 +26,13 @@ class Pipeline:
         self._setup_logging()
 
         # Initialize agents
+        # Validate reasoning key at runtime for Google provider
+        reasoning_key = settings.google_api_key
+        if not reasoning_key or reasoning_key.strip() == "":
+            raise RuntimeError("Missing GOOGLE_API_KEY: please set it in .env to use Gemini for reasoning.")
+
         self.concept_interpreter = ConceptInterpreterAgent(
-            api_key=settings.google_api_key,
+            api_key=reasoning_key,
             base_url="",
             model=settings.reasoning_model,
             reasoning_tokens=settings.interpreter_reasoning_tokens,
@@ -48,7 +53,7 @@ class Pipeline:
         )
 
         self.manim_agent = ManimAgent(
-            api_key=settings.google_api_key,
+            api_key=reasoning_key,
             base_url="",
             model=settings.reasoning_model,
             output_dir=settings.output_dir,

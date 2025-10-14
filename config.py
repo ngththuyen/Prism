@@ -6,9 +6,9 @@ from typing import Optional, Any
 
 
 class Settings(BaseSettings):
-    # API Keys
-    openrouter_api_key: str
-    google_api_key: str
+    # API Keys (optional at startup; validated at use time)
+    openrouter_api_key: Optional[str] = None
+    google_api_key: Optional[str] = None
     elevenlabs_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
 
@@ -157,8 +157,9 @@ class Settings(BaseSettings):
             openai_key = values['openai_api_key']
 
             # If both are None or empty, raise an error
-            if (not elevenlabs_key or elevenlabs_key.strip() == '') and (not openai_key or openai_key.strip() == ''):
-                raise ValueError('At least one TTS API key (elevenlabs_api_key or openai_api_key) must be provided')
+            # Allow startup without keys; providers are checked at runtime
+            # if (not elevenlabs_key or elevenlabs_key.strip() == '') and (not openai_key or openai_key.strip() == ''):
+            #     raise ValueError('At least one TTS API key (elevenlabs_api_key or openai_api_key) must be provided')
 
         return v
 
