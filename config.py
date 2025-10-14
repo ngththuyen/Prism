@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # Model Selection
     # If llm_provider == "google": use Gemini model IDs
     # If llm_provider == "openrouter": use OpenRouter model IDs
-    reasoning_model: str = "gemini-2.0-pro"
+    reasoning_model: str = "gemini-2.5-pro"
     multimodal_model: str = "gemini-2.5-pro"
 
     # TTS Provider Selection
