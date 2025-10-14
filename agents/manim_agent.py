@@ -73,6 +73,7 @@ class ManimAgent(BaseAgent):
    - Use clear, educational visual style (dark background, bright elements)
    - Include mathematical notation, equations, diagrams
    - Show relationships and transformations visually
+   - Prefer symbols, math notation, arrows, and short neutral labels over long text. Avoid English prose inside the scene; rely on subtitles for language-specific narration.
    - Use color coding consistently:
      - Blue (#3B82F6) for known/assumed quantities
      - Green (#22C55E) for newly introduced concepts
@@ -109,6 +110,7 @@ class ManimAgent(BaseAgent):
 
 7. **Element Naming**:
    - Use descriptive, stable targets (e.g., "bayes_equation", "likelihood_label", "frequency_grid") reused across scenes.
+   - Prefer language-agnostic, short labels (e.g., symbols, abbreviations) for on-screen text. Avoid full sentences.
    - When transforming, specify `"parameters": {"from": "<old_target>", "to": "<new_target>"}` where helpful.
 
 **OUTPUT FORMAT**:
@@ -541,6 +543,7 @@ SIMPLE 2D-ONLY MODE (STRICT)
    - Use **`Text`** for plain text, **`MathTex`** for math, **`Tex`** for LaTeX (non-math).
    - Allowed 2D mobjects: `Dot, Line, Arrow, Vector, Circle, Square, Rectangle, Triangle, NumberPlane, Axes, Brace, SurroundingRectangle, Text, MathTex, Tex, VGroup`.
    - Unsupported elements in the plan (e.g., complex “diagram” types) must be **downgraded** to simple shapes + labels (e.g., boxes, lines, arrows, small groups of dots).
+   - Prefer `MathTex` and symbols over long `Text`. Avoid English sentences in on-screen `Text`; keep labels short, neutral, or symbolic.
 
 3) **Action → Code Mapping (Use Only These)**
    - `"write"` → `self.play(Write(obj))`
@@ -580,7 +583,8 @@ SIMPLE 2D-ONLY MODE (STRICT)
    - Prefer `next_to`, `to_edge`, small `shift` values; avoid dense stacking.
    - If multiple texts/equations appear, place them **vertically** with `next_to(prev, DOWN)`.
    - Keep font sizes moderate (e.g., `Text(..., font_size=36–48)`) to avoid overflow.
-   - Keep explaination text, calculation and the visualization seperate to avoid overlapping
+   - Keep explanation text, calculation and the visualization separate to avoid overlapping.
+   - If a label would be long, replace it with a short symbol or abbreviation and rely on subtitles for explanations.
 
 8) **Flow (Minimal & Clear)**
    - Brief title (2–3s), then step-by-step reveal matching the order of `actions`.

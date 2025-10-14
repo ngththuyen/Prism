@@ -54,6 +54,7 @@ class VideoCompositor:
         subtitle_background: bool = True,
         subtitle_background_opacity: float = 0.5,
         subtitle_position: str = "bottom",
+        subtitle_font_path: Optional[str] = None,
         max_retries: int = 3,
         timeout: int = 600
     ):
@@ -88,6 +89,7 @@ class VideoCompositor:
         self.subtitle_background = subtitle_background
         self.subtitle_background_opacity = subtitle_background_opacity
         self.subtitle_position = subtitle_position
+        self.subtitle_font_path = subtitle_font_path
         self.max_retries = max_retries
         self.timeout = timeout
 
@@ -324,7 +326,7 @@ class VideoCompositor:
             # Create subtitle filter if burning in and subtitle_path provided
             if self.subtitle_burn_in and subtitle_path:
                 subtitle_filter = self._create_subtitle_filter(subtitle_path)
-                video = input_video.filter('subtitles', subtitle_path)
+                video = input_video.filter('subtitles', subtitle_filter)
             else:
                 video = input_video
 
@@ -372,9 +374,40 @@ class VideoCompositor:
             raise
 
     def _create_subtitle_filter(self, subtitle_path: str) -> str:
-        """Create subtitle filter string for FFmpeg"""
-        # Basic subtitle filter - can be enhanced for more styling
-        return subtitle_path
+        """Create subtitle filter string for FFmpeg libass with optional fontsdir and styling.
+
+        Note: We keep styling minimal and prioritize fontsdir to ensure Vietnamese glyph support.
+        """
+        # Normalize paths to POSIX for ffmpeg
+        sub_path = Path(subtitle_path).resolve().as_posix()
+
+        # Build filter parts
+        parts = [sub_path]
+
+        # Supply fontsdir if a font path is configured
+        try:
+            if self.subtitle_font_path:
+                font_dir = Path(self.subtitle_font_path).resolve().parent.as_posix()
+                parts.append(f"fontsdir={font_dir}")
+        except Exception:
+            # Ignore font path issues and fall back silently
+            pass
+
+        # Basic force_style: Fontsize and alignment; libass alignment 2 = bottom-center
+        force_styles: list[str] = []
+        if self.subtitle_font_size:
+            force_styles.append(f"Fontsize={int(self.subtitle_font_size)}")
+
+        # Position mapping
+        alignment_map = {"top": 8, "center": 5, "bottom": 2}
+        align_val = alignment_map.get(str(self.subtitle_position).lower(), 2)
+        force_styles.append(f"Alignment={align_val}")
+
+        if force_styles:
+            parts.append("force_style=" + ",".join(force_styles))
+
+        # Join with colons as expected by subtitles filter
+        return ":".join(parts)
 
     def get_supported_formats(self) -> List[str]:
         """Get list of supported input/output formats"""

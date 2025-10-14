@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Gradio web app for STEM Animation Generator
-Simple UI: Input concept -> Progress bar -> Video player
+Gradio web app for Prism
+Simple UI: Nhập chủ đề -> Tiến trình -> Xem video
 """
 
 import gradio as gr
@@ -10,7 +10,7 @@ from pathlib import Path
 
 pipeline = Pipeline()
 
-def generate_animation(concept: str, language: str = "English", progress=gr.Progress()):
+def generate_animation(concept: str, language: str = "Vietnamese", progress=gr.Progress()):
     """
     Main generation function called by Gradio
 
@@ -39,35 +39,35 @@ def generate_animation(concept: str, language: str = "English", progress=gr.Prog
     else:
         return None
 
-with gr.Blocks(title="STEMViz") as demo:
-    gr.Markdown("# STEMViz")
-    gr.Markdown("Transform STEM concepts into narrated educational animations")
+with gr.Blocks(title="Prism") as demo:
+    gr.Markdown("# Prism")
+    gr.Markdown("Biến các khái niệm STEM thành video minh hoạ có thuyết minh")
     
     with gr.Row():
         with gr.Column():
             concept_input = gr.Textbox(
-                label="Enter STEM Concept",
-                placeholder="e.g., Explain Bubble Sort, Bayes' Theorem, Gradient Descent...",
+                label="Nhập chủ đề STEM",
+                placeholder="Ví dụ: Giải thích Thuật toán Sắp xếp nổi bọt, Định lý Bayes, Gradient Descent...",
                 lines=2
             )
             language_dropdown = gr.Dropdown(
                 choices=["English", "Chinese", "Spanish", "Vietnamese"],
-                value="English",
-                label="Narration Language"
+                value="Vietnamese",
+                label="Ngôn ngữ thuyết minh"
             )
-            generate_btn = gr.Button("Generate Animation", variant="primary")
+            generate_btn = gr.Button("Tạo video", variant="primary")
         
     with gr.Row():
         video_output = gr.Video(
-            label="Generated Animation",
+            label="Video đã tạo",
             autoplay=True
         )
     
     gr.Examples(
         examples=[
-            ["Explain Bubble Sort"],
-            ["Explain Bayes' Theorem"],
-            ["Explain Gradient Descent"]
+            ["Giải thích thuật toán Sắp xếp nổi bọt (Bubble Sort)"],
+            ["Trình bày Định lý Bayes trong chẩn đoán y khoa"],
+            ["Giải thích trực quan Gradient Descent"]
         ],
         inputs=concept_input
     )

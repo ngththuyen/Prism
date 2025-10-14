@@ -1,381 +1,174 @@
-## Installation
+## Prism — Tạo video minh hoạ STEM bằng nhiều tác tử AI
 
-### Prerequisites
+Prism là hệ thống tạo video giáo dục: bạn nhập chủ đề STEM, các tác tử AI sẽ phân tích khái niệm, lập kế hoạch cảnh, sinh mã Manim để dựng hoạt hình 2D, tạo phụ đề SRT đồng bộ, tổng hợp giọng nói (TTS), rồi ghép thành video MP4 có thuyết minh và phụ đề (burn‑in) sẵn sàng chia sẻ.
 
-**System Requirements:**
+### Tính năng chính
+- Tác tử Concept Interpreter → phân tích chủ đề thành các tiểu mục
+- Tác tử Manim → lập kế hoạch scene, sinh mã, render từng cảnh và nối video câm
+- Script Generator → xem video câm và sinh phụ đề SRT theo ngôn ngữ mục tiêu
+- TTS đa nhà cung cấp (ElevenLabs, OpenAI) → giọng Việt tự nhiên
+- Ghép video + audio + phụ đề bằng FFmpeg, hỗ trợ font tiếng Việt khi burn‑in
+- Giao diện Gradio tiếng Việt, mặc định ngôn ngữ thuyết minh là “Vietnamese”
+
+---
+
+## Cài đặt
+
+### Yêu cầu hệ thống
 - Python 3.10+
-- FFmpeg (for video processing)
-- LaTeX (for mathematical notation in animations)
+- FFmpeg
+- LaTeX (để hiển thị công thức trong Manim)
 
-**API Keys Required:**
-- [OpenRouter API Key](https://openrouter.ai/) (for LLM reasoning)
-- [Google AI API Key](https://aistudio.google.com/app/apikey) (for multimodal video analysis)
-- [ElevenLabs API Key](https://elevenlabs.io/) (for text-to-speech)
+### API keys cần có
+- OpenRouter API Key (LLM reasoning)
+- Google AI API Key (multimodal sinh phụ đề SRT)
+- ElevenLabs hoặc OpenAI API Key (TTS)
 
----
-
-### Step 1: Install System Dependencies
-
-#### macOS
+### Cài hệ thống phụ thuộc
+macOS:
 ```bash
-# Install Homebrew if not already installed
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install FFmpeg
 brew install ffmpeg
-
-# Install LaTeX (required for math rendering in Manim)
 brew install --cask mactex
-
-# After LaTeX installation, update PATH (add to ~/.zshrc or ~/.bash_profile)
 export PATH="/Library/TeX/texbin:$PATH"
-source ~/.zshrc  # or source ~/.bash_profile
 ```
-
-#### Linux (Ubuntu/Debian)
+Ubuntu/Debian:
 ```bash
-# Update package list
-sudo apt update
-
-# Install FFmpeg
-sudo apt install ffmpeg
-
-# Install LaTeX (full TeX Live distribution)
-sudo apt install texlive-full
-
-# Alternative: minimal LaTeX install (faster, but may miss some packages)
-# sudo apt install texlive texlive-latex-extra texlive-fonts-extra texlive-science
+sudo apt update && sudo apt install -y ffmpeg texlive-full
 ```
-
-#### Windows
+Windows (PowerShell Admin):
 ```powershell
-# Install Chocolatey if not already installed (run PowerShell as Administrator)
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-
-# Install FFmpeg
 choco install ffmpeg
-
-# Install MiKTeX (LaTeX distribution for Windows)
 choco install miktex
-
-# After installation, restart your terminal and update PATH if needed
 ```
 
-**Verify installations:**
+### Tải mã nguồn và cài thư viện Python
 ```bash
-ffmpeg -version
-latex --version
-```
+git clone <link_repo_cua_ban>
+cd Prism
 
----
-
-### Step 2: Clone Repository
-
-```bash
-git clone https://github.com/qnguyen3/STEMViz.git
-cd STEMViz
-```
-
----
-
-### Step 3: Install Python Environment (Using UV - Recommended)
-
-We recommend using [UV](https://github.com/astral-sh/uv) for fast, reliable Python package management.
-
-#### Install UV
-
-**macOS/Linux:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**Windows:**
-```powershell
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-#### Create Virtual Environment and Install Dependencies
-
-```bash
-# Create virtual environment
-uv venv
-
-# Activate virtual environment
-# macOS/Linux:
-source .venv/bin/activate
-
-# Windows:
-.venv\Scripts\activate
-
-# Install dependencies
-uv pip install -r requirements.txt
-```
-
-**Alternative (using pip):**
-```bash
 python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
----
-
-### Step 4: Configure API Keys
-
-1. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Edit `.env` and add your API keys:
-   ```bash
-   OPENROUTER_API_KEY=your_openrouter_key_here
-   GOOGLE_API_KEY=your_google_ai_key_here
-   ELEVENLABS_API_KEY=your_elevenlabs_key_here
-   ```
-
-**Where to get API keys:**
-- **OpenRouter**: Sign up at [openrouter.ai](https://openrouter.ai/) and create an API key
-- **Google AI**: Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-- **ElevenLabs**: Sign up at [elevenlabs.io](https://elevenlabs.io/) and get your API key from the profile page
-
----
-
-### Step 5: Verify Manim Installation
-
-Test that Manim is properly installed:
-
+### Cấu hình .env
+Tạo file `.env` và điền:
 ```bash
-manim --version
-```
-
-If Manim is not found, ensure your virtual environment is activated and reinstall:
-```bash
-uv pip install --force-reinstall manim
+OPENROUTER_API_KEY=...
+GOOGLE_API_KEY=...
+ELEVENLABS_API_KEY=...      # hoặc OPENAI_API_KEY=...
+TTS_PROVIDER=elevenlabs     # hoặc openai
 ```
 
 ---
 
-## Usage
+## Sử dụng
 
-### Launch Gradio Web Interface
-
+Chạy giao diện Gradio:
 ```bash
 python app.py
 ```
+Mặc định mở tại `http://127.0.0.1:7860`. Nhập chủ đề bằng tiếng Việt, chọn “Ngôn ngữ thuyết minh” (mặc định: Vietnamese), bấm “Tạo video”.
 
-The Gradio interface will open in your browser at `http://127.0.0.1:7860`
-
-### Using the Interface
-
-1. **Enter a STEM concept** in the text box (e.g., "Explain QuickSort algorithm", "Demonstrate gradient descent", "Show Bayes' theorem")
-2. **Click "Generate Animation"**
-3. **Wait for the pipeline** to complete (typically 3-5 minutes depending on complexity)
-4. **Watch the generated video** with synchronized narration
-
-### Example Prompts
-
+Ví dụ prompt:
 ```
-- Explain bubble sort algorithm
-- Demonstrate gradient descent optimization
-- Show Bayes' theorem with a medical diagnosis example
-- Explain how backpropagation works in neural networks
-- Visualize the Fourier transform
-- Demonstrate the central limit theorem
+Giải thích thuật toán Sắp xếp nổi bọt (Bubble Sort)
+Trình bày Định lý Bayes trong chẩn đoán y khoa
+Giải thích trực quan Gradient Descent
 ```
 
 ---
 
-## Architecture
-
-```
-User Input (STEM concept via Gradio)
-  ↓
-Concept Interpreter Agent (structured analysis)
-  ↓
-Manim Agent (scene planning → parallel code generation → rendering)
-  ↓
-Concatenated Silent Animation
-  ↓
-Script Generator (multimodal LLM analyzes video → timestamped narration)
-  ↓
-Audio Synthesizer (TTS with timing sync)
-  ↓
-Video Compositor (final MP4 with audio + subtitles)
-  ↓
-Display in Gradio
-```
-
-### Technology Stack
-
-- **UI**: Gradio
-- **Animation**: Manim Community Edition
-- **LLMs**: 
-  - Reasoning: Claude Sonnet 4.5 via OpenRouter
-  - Multimodal: Gemini 2.5 Flash
-- **TTS**: ElevenLabs
-- **Media Processing**: FFmpeg
+## Cấu hình quan trọng (`config.py`)
+- `target_language = "Vietnamese"` (mặc định)
+- TTS:
+  - `tts_provider = "elevenlabs" | "openai"`
+  - ElevenLabs: `elevenlabs_voice_id`, `elevenlabs_model_id`, …
+  - OpenAI: `openai_voice`, `openai_model`, …
+- Phụ đề (burn‑in):
+  - `subtitle_burn_in = True`
+  - `subtitle_font_path` → ĐƯỜNG DẪN FONT có hỗ trợ tiếng Việt (ví dụ: NotoSans-Regular.ttf). Prism sẽ truyền `fontsdir` cho ffmpeg để đảm bảo dấu tiếng Việt hiển thị đúng.
+- Manim: `manim_quality`, `manim_frame_rate`, `manim_max_scene_duration`, …
 
 ---
 
-## Configuration
+## Kiến trúc
+```
+Người dùng (Gradio)
+  ↓
+Concept Interpreter Agent
+  ↓
+Manim Agent (lập kế hoạch cảnh → sinh mã → render → nối video câm)
+  ↓
+Script Generator (LLM đa phương thức → phụ đề SRT có timestamp)
+  ↓
+TTS (đồng bộ thời gian)
+  ↓
+Video Compositor (FFmpeg: ghép + burn‑in phụ đề)
+  ↓
+Hiển thị trong Gradio
+```
 
-Edit `config.py` to customize:
-
-- **Animation quality**: `manim_quality` (480p15, 720p30, 1080p60, 1440p60)
-- **LLM models**: `reasoning_model`, `multimodal_model`
-- **TTS settings**: `tts_voice_id`, `tts_stability`, `tts_similarity_boost`
-- **Video settings**: `video_codec`, `video_crf`, `audio_bitrate`
-- **Timeouts and retries**: Various `*_timeout` and `*_max_retries` settings
+### Công nghệ
+- UI: Gradio
+- Animation: Manim Community Edition
+- LLMs: OpenRouter (Reasoning), Google AI (Multimodal)
+- TTS: ElevenLabs, OpenAI
+- Media: FFmpeg
 
 ---
 
-## Output Structure
+## Cấu trúc thư mục
+```
+Prism/
+├── agents/
+│   ├── concept_interpreter.py
+│   ├── manim_agent.py
+│   └── manim_models.py
+├── generation/
+│   ├── script_generator.py
+│   ├── tts/
+│   │   ├── elevenlabs_provider.py
+│   │   └── openai_provider.py
+│   └── video_compositor.py
+├── rendering/
+│   └── manim_renderer.py
+├── utils/
+├── app.py
+├── pipeline.py
+├── config.py
+└── requirements.txt
+```
 
+### Thư mục đầu ra
 ```
 output/
-├── analyses/       # Concept analysis JSON files
-├── scene_codes/    # Generated Manim code (cleaned up after success)
-├── scenes/         # Individual scene videos (cleaned up after success)
-├── animations/     # Concatenated silent animations (cleaned up after success)
-├── scripts/        # Timestamped SRT narration scripts
-├── audio/          # Generated speech audio (cleaned up after success)
-│   └── segments/   # Individual audio segments (cleaned up after success)
-└── final/          # Final videos with narration ✅ (KEPT)
-```
-
-**Note:** Temporary files are automatically cleaned up after successful video generation. Only final videos and scripts are preserved.
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**1. "LaTeX not found" error**
-```bash
-# Verify LaTeX installation
-latex --version
-
-# macOS: Ensure PATH includes LaTeX
-export PATH="/Library/TeX/texbin:$PATH"
-
-# Linux: Reinstall TeX Live
-sudo apt install texlive-full
-```
-
-**2. "FFmpeg not found" error**
-```bash
-# Verify FFmpeg installation
-ffmpeg -version
-
-# Reinstall if needed (macOS)
-brew reinstall ffmpeg
-
-# Linux
-sudo apt reinstall ffmpeg
-```
-
-**3. "Manim command not found"**
-```bash
-# Ensure virtual environment is activated
-source .venv/bin/activate  # macOS/Linux
-.venv\Scripts\activate     # Windows
-
-# Reinstall Manim
-uv pip install --force-reinstall manim
-```
-
-**4. API Key errors**
-- Verify `.env` file exists and contains valid API keys
-- Check API key quotas/limits on respective platforms
-- Ensure no extra spaces or quotes around API keys in `.env`
-
-**5. Out of memory errors**
-- Reduce animation quality in `config.py`: `manim_quality = "720p30"`
-- Reduce `manim_max_scene_duration` to simplify scenes
-- Close other applications to free up RAM
-
-**6. Slow generation**
-- First run is slower due to LaTeX package downloads
-- Subsequent runs are faster as packages are cached
-- Complex concepts naturally take longer (3-5 minutes average)
-
----
-
-## Development
-
-### Project Structure
-
-```
-STEMViz/
-├── agents/                  # AI agents
-│   ├── concept_interpreter.py   # Analyzes and decomposes STEM concepts
-│   ├── manim_agent.py            # Generates and renders Manim animations
-│   └── manim_models.py           # Data models for animation pipeline
-├── generation/              # Content generation
-│   ├── script_generator.py       # Multimodal narration generation
-│   ├── audio_synthesizer.py      # TTS audio synthesis
-│   └── video_compositor.py       # Final video composition
-├── rendering/               # Animation rendering
-│   └── manim_renderer.py         # Manim code execution
-├── utils/                   # Utilities
-│   └── validators.py             # Input validation
-├── config.py                # Centralized configuration
-├── pipeline.py              # Main orchestration pipeline
-├── app.py                   # Gradio web interface
-└── requirements.txt         # Python dependencies
+├── analyses/
+├── scene_codes/
+├── scenes/
+├── animations/
+├── scripts/      # *.srt
+├── audio/
+└── final/        # *.mp4 cuối cùng
 ```
 
 ---
 
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## Mẹo & xử lý sự cố
+- Manim không chạy: đảm bảo đã kích hoạt virtualenv, `manim --version` ok.
+- FFmpeg/LaTeX thiếu: cài lại theo phần Cài đặt; kiểm tra `ffmpeg -version`, `latex --version`.
+- Phụ đề lỗi dấu: đặt `subtitle_font_path` tới font có hỗ trợ tiếng Việt, ví dụ Noto Sans.
+- Render chậm/lỗi bộ nhớ: giảm `manim_quality` hoặc `manim_max_scene_duration`.
 
 ---
 
-## License
-
-This project is licensed under a non-commercial License - see the LICENSE file for details.
-
----
-
-## Acknowledgments
-
-- **Manim Community**: For the amazing mathematical animation engine
-- **3Blue1Brown**: For inspiring educational math visualizations
-- **Anthropic, Google, ElevenLabs**: For powerful AI APIs
+## Giấy phép
+Dự án sử dụng giấy phép phi thương mại. Xem chi tiết trong `LICENSE`.
 
 ---
 
-## Citation
+## Góp ý & liên hệ
+- Vui lòng mở issue hoặc PR để đóng góp tính năng/sửa lỗi.
+- Chạy xem trước UI: `python app.py`.
 
-If you use STEMViz in your research or project, please cite:
-
-```bibtex
-@software{stemviz2025,
-  author = {Nguyen, Quan},
-  title = {STEMViz: AI-Powered STEM Concept Visualizer},
-  year = {2025},
-  url = {https://github.com/qnguyen3/STEMViz}
-}
-```
-
----
-
-## Contact
-
-**Quan Nguyen** - [@qnguyen3](https://github.com/qnguyen3)
-
-Project Link: [https://github.com/qnguyen3/STEMViz](https://github.com/qnguyen3/STEMViz)
-
----
-
-**⭐ Star this repo if you find it useful!**
+Nếu Prism hữu ích, hãy gắn ⭐ cho repo nhé!

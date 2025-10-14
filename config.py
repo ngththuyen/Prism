@@ -131,6 +131,7 @@ class Settings(BaseSettings):
     subtitle_background: bool = True
     subtitle_background_opacity: float = 0.5
     subtitle_position: str = "bottom"  # top, center, bottom
+    subtitle_font_path: Optional[str] = None  # e.g., path to a font with full Vietnamese glyphs
 
     # Video Composition Settings
     video_composition_max_retries: int = 3
@@ -141,7 +142,7 @@ class Settings(BaseSettings):
     llm_timeout: int = 120  # seconds
 
     # Language Settings
-    target_language: str = "English"  # Supported: English, Chinese, Spanish, Vietnamese
+    target_language: str = "Vietnamese"  # Default for Prism; Supported: English, Chinese, Spanish, Vietnamese
 
     @validator('elevenlabs_api_key', 'openai_api_key', pre=True)
     def validate_tts_keys(cls, v, values):

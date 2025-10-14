@@ -84,6 +84,7 @@ class Pipeline:
             subtitle_background=settings.subtitle_background,
             subtitle_background_opacity=settings.subtitle_background_opacity,
             subtitle_position=settings.subtitle_position,
+            subtitle_font_path=settings.subtitle_font_path,
             max_retries=settings.video_composition_max_retries,
             timeout=settings.video_composition_timeout
         )
@@ -377,10 +378,13 @@ class Pipeline:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"{animation_name}_final_{timestamp}.mp4"
 
+        # Use generated SRT subtitles if available
+        subtitle_path = script_path if script_path else None
+
         return self.video_compositor.execute(
             video_path=animation_path,
             audio_path=audio_path,
-            subtitle_path=None,
+            subtitle_path=subtitle_path,
             output_filename=output_filename
         )
 
