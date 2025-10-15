@@ -1,121 +1,238 @@
-from pydantic import BaseModel, Fieldfrom pydantic import BaseModel, Field
+from pydantic import BaseModel, Fieldfrom pydantic import BaseModel, Fieldfrom pydantic import BaseModel, Field
 
-from typing import List, Optional, Dict, Any, Tuplefrom typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple
+
+from enum import Enumfrom typing import List, Optional, Dict, Any, Tuplefrom typing import List, Optional, Dict, Any, Tuple
+
+import re
 
 from enum import Enumfrom enum import Enum
 
-import reimport re
 
 
-
-
-
-class SceneAction(BaseModel):
+class SceneAction(BaseModel):import reimport re
 
     """Represents a single visual action within a scene"""
 
-    action_type: strclass SceneAction(BaseModel):
+    action_type: str
 
-    element_type: str    """Represents a single visual action within a scene"""
+    element_type: str
 
-    description: str    action_type: str
+    description: str
 
-    target: str    element_type: str
+    target: str
 
-    duration: float    description: str
-
-    parameters: Dict[str, Any] = Field(default_factory=dict)    target: str
-
-    duration: float
+    duration: floatclass SceneAction(BaseModel):
 
     parameters: Dict[str, Any] = Field(default_factory=dict)
 
-class ScenePlan(BaseModel):
+    """Represents a single visual action within a scene"""
+
+
+
+class ScenePlan(BaseModel):    action_type: strclass SceneAction(BaseModel):
 
     """Complete plan for a single animation scene"""
 
-    id: strclass ScenePlan(BaseModel):
+    id: str    element_type: str    """Represents a single visual action within a scene"""
 
-    title: str    """Complete plan for a single animation scene"""
+    title: str
 
-    description: str    id: str
+    description: str    description: str    action_type: str
 
-    sub_concept_id: str    title: str
+    sub_concept_id: str
 
-    actions: List[SceneAction]    description: str
-
-    scene_dependencies: List[str] = Field(default_factory=list)    sub_concept_id: str
-
-    actions: List[SceneAction]
+    actions: List[SceneAction]    target: str    element_type: str
 
     scene_dependencies: List[str] = Field(default_factory=list)
 
-class ManimSceneCode(BaseModel):
+    duration: float    description: str
 
-    """Generated Manim code for a single scene"""class ManimSceneCode(BaseModel):
 
-    scene_id: str    """Generated Manim code for a single scene"""
 
-    scene_name: str    scene_id: str
+class ManimSceneCode(BaseModel):    parameters: Dict[str, Any] = Field(default_factory=dict)    target: str
+
+    """Generated Manim code for a single scene"""
+
+    scene_id: str    duration: float
+
+    scene_name: str
+
+    manim_code: str    parameters: Dict[str, Any] = Field(default_factory=dict)
+
+    raw_llm_output: str
+
+    extraction_method: str = "tags"class ScenePlan(BaseModel):
+
+
+
+    """Complete plan for a single animation scene"""
+
+class RenderResult(BaseModel):
+
+    """Result of rendering a single scene"""    id: strclass ScenePlan(BaseModel):
+
+    scene_id: str
+
+    success: bool    title: str    """Complete plan for a single animation scene"""
+
+    video_path: Optional[str] = None
+
+    error_message: Optional[str] = None    description: str    id: str
+
+    duration: Optional[float] = None
+
+    resolution: Optional[Tuple[int, int]] = None    sub_concept_id: str    title: str
+
+    render_time: Optional[float] = None
+
+    file_size_mb: Optional[float] = None    actions: List[SceneAction]    description: str
+
+
+
+    scene_dependencies: List[str] = Field(default_factory=list)    sub_concept_id: str
+
+class AnimationResult(BaseModel):
+
+    """Complete result of animation generation for a concept"""    actions: List[SceneAction]
+
+    success: bool
+
+    concept_id: str    scene_dependencies: List[str] = Field(default_factory=list)
+
+    total_duration: Optional[float] = None
+
+    scene_count: intclass ManimSceneCode(BaseModel):
+
+    silent_animation_path: Optional[str] = None
+
+    error_message: Optional[str] = None    """Generated Manim code for a single scene"""class ManimSceneCode(BaseModel):
+
+
+
+    # Detailed results    scene_id: str    """Generated Manim code for a single scene"""
+
+    scene_plan: List[ScenePlan]
+
+    scene_codes: List[ManimSceneCode]    scene_name: str    scene_id: str
+
+    render_results: List[RenderResult]
 
     manim_code: str    scene_name: str
 
-    raw_llm_output: str    manim_code: str
+    # Metadata
 
-    extraction_method: str = "tags"    raw_llm_output: str
+    generation_time: Optional[float] = None    raw_llm_output: str    manim_code: str
+
+    total_render_time: Optional[float] = None
+
+    models_used: Dict[str, str] = Field(default_factory=dict)    extraction_method: str = "tags"    raw_llm_output: str
+
+    token_usage: Dict[str, int] = Field(default_factory=dict)
 
     extraction_method: str = "tags"
 
 
 
-class RenderResult(BaseModel):
+class AnimationConfig(BaseModel):
 
-    """Result of rendering a single scene"""class RenderResult(BaseModel):
+    """Configuration for animation generation"""
 
-    scene_id: str    """Result of rendering a single scene"""
+    quality: str = "1080p60"class RenderResult(BaseModel):
 
-    success: bool    scene_id: str
+    background_color: str = "#0f0f0f"
+
+    frame_rate: int = 60    """Result of rendering a single scene"""class RenderResult(BaseModel):
+
+    max_scene_duration: float = 30.0
+
+    total_video_duration_target: float = 120.0    scene_id: str    """Result of rendering a single scene"""
+
+
+
+    max_retries_per_scene: int = 3    success: bool    scene_id: str
+
+    temperature: float = 0.7
 
     video_path: Optional[str] = None    success: bool
 
-    error_message: Optional[str] = None    video_path: Optional[str] = None
+    render_timeout: int = 300
+
+    enable_simplification: bool = True    error_message: Optional[str] = None    video_path: Optional[str] = None
+
+    simplify_on_retry: bool = True
 
     duration: Optional[float] = None    error_message: Optional[str] = None
 
-    resolution: Optional[Tuple[int, int]] = None    duration: Optional[float] = None
 
-    render_time: Optional[float] = None    resolution: Optional[Tuple[int, int]] = None
 
-    file_size_mb: Optional[float] = None    render_time: Optional[float] = None
+class SceneTransition(BaseModel):    resolution: Optional[Tuple[int, int]] = None    duration: Optional[float] = None
+
+    """Defines how scenes transition to each other"""
+
+    from_scene: str    render_time: Optional[float] = None    resolution: Optional[Tuple[int, int]] = None
+
+    to_scene: str
+
+    transition_type: str = "fade"    file_size_mb: Optional[float] = None    render_time: Optional[float] = None
+
+    duration: float = 0.5
 
     file_size_mb: Optional[float] = None
 
 
 
-class AnimationResult(BaseModel):
+class AnimationMetadata(BaseModel):
 
-    """Complete result of animation generation for a concept"""class AnimationResult(BaseModel):
+    """Metadata for the complete animation generation process"""
 
-    success: bool    """Complete result of animation generation for a concept"""
+    concept_name: strclass AnimationResult(BaseModel):
 
-    concept_id: str    success: bool
+    timestamp: str
 
-    total_duration: Optional[float] = None    concept_id: str
+    version: str = "2.0"    """Complete result of animation generation for a concept"""class AnimationResult(BaseModel):
 
-    scene_count: int    total_duration: Optional[float] = None
 
-    silent_animation_path: Optional[str] = None    scene_count: int
 
-    error_message: Optional[str] = None    silent_animation_path: Optional[str] = None
+    # Generation statistics    success: bool    """Complete result of animation generation for a concept"""
+
+    total_scenes_planned: int
+
+    total_scenes_rendered: int    concept_id: str    success: bool
+
+    successful_renders: int
+
+    failed_renders: int    total_duration: Optional[float] = None    concept_id: str
+
+
+
+    # Timing information    scene_count: int    total_duration: Optional[float] = None
+
+    planning_time: Optional[float] = None
+
+    code_generation_time: Optional[float] = None    silent_animation_path: Optional[str] = None    scene_count: int
+
+    rendering_time: Optional[float] = None
+
+    concatenation_time: Optional[float] = None    error_message: Optional[str] = None    silent_animation_path: Optional[str] = None
+
+    total_time: Optional[float] = None
 
     error_message: Optional[str] = None
 
-    # Detailed results
+    # Resource usage
+
+    total_tokens_used: int = 0    # Detailed results
+
+    estimated_cost_usd: Optional[float] = None
 
     scene_plan: List[ScenePlan]    # Detailed results
 
-    scene_codes: List[ManimSceneCode]    scene_plan: List[ScenePlan]
+    # File information
 
+    total_video_size_mb: Optional[float] = None    scene_codes: List[ManimSceneCode]    scene_plan: List[ScenePlan]
+
+    intermediate_files_count: int = 0
     render_results: List[RenderResult]    scene_codes: List[ManimSceneCode]
 
     render_results: List[RenderResult]
