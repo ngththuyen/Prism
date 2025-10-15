@@ -98,8 +98,8 @@ def _call_llm(
                 # ⭐ FIX: Clean markdown artifacts if json_mode is True
                 if json_mode:
                     # Remove markdown code blocks
-                    content = re.sub(r'^```json\s*', '', content, flags=re.IGNORECASE | re.MULTILINE)
-                    content = re.sub(r'^```\s*
+                    content = re.sub(r'^```json
+                    content = re.sub(r'^```\s*\n', '', content, flags=re.IGNORECASE | re.MULTILINE)
                 
                 # Rough token tracking (approximate)
                 try:
