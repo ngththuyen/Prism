@@ -183,7 +183,7 @@ EXAMPLE (Easy & Clear) for “Area of a Circle” in Vietnamese:
         user_message = f"Analyze this STEM concept and provide a structured breakdown in {target_language}:\n\n{concept}\n\nReturn ONLY valid JSON matching the exact structure provided, with no extra text, backticks, or markdown formatting."
 
         try:
-            # Format system prompt with target language
+            # Format system prompt with target_language
             system_prompt = self.SYSTEM_PROMPT.format(target_language=target_language)
 
             for attempt in range(4):  # Increased to 4 retries
@@ -208,69 +208,13 @@ EXAMPLE (Easy & Clear) for “Area of a Circle” in Vietnamese:
                     self.logger.warning(f"JSON parsing failed on attempt {attempt + 1}: {parse_error}")
                     if attempt < 3:
                         self.logger.info("Retrying with stricter prompt")
-                        user_message += "\nReturn ONLY valid JSON matching the exact structure provided, with no extra text, backticks, or markdown."
+                        user_message += "\nReturn ONLY valid JSON matching the exact structure provided, with no extra text, backticks, or markdown. Ensure all strings are properly closed and the JSON is complete."
                     else:
                         raise ValueError(f"Failed to parse LLM response after 4 attempts: {parse_error}")
 
         except Exception as e:
             self.logger.error(f"Failed to analyze concept: {e}")
             raise ValueError(f"Concept interpretation failed: {e}")
-
-    def _call_llm_structured(self, system_prompt: str, user_message: str, temperature: float = 0.7, max_retries: int = 3) -> dict:
-        """
-        Override _call_llm_structured to clean LLM response before parsing
-
-        Args:
-            system_prompt: System prompt for the LLM
-            user_message: User message to send to the LLM
-            temperature: Sampling temperature
-            max_retries: Number of retries for LLM call
-
-        Returns:
-            Parsed JSON response as a dictionary
-
-        Raises:
-            ValueError: If LLM response cannot be parsed after retries
-        """
-        for attempt in range(max_retries + 1):
-            try:
-                # Call parent _call_llm_structured (assumed to return raw response)
-                raw_response = super()._call_llm_structured(
-                    system_prompt=system_prompt,
-                    user_message=user_message,
-                    temperature=temperature,
-                    max_retries=0  # Handle retries here
-                )
-                
-                # Log raw response
-                self.logger.debug(f"Raw LLM response before cleaning (attempt {attempt + 1}): {raw_response}")
-
-                # Clean response
-                cleaned_response = self._clean_llm_response(raw_response)
-
-                # Log cleaned response
-                self.logger.debug(f"Cleaned LLM response (attempt {attempt + 1}): {cleaned_response}")
-
-                # Parse JSON
-                response_json = json.loads(cleaned_response)
-                return response_json
-
-            except Exception as e:
-                self.logger.warning(f"LLM call failed on attempt {attempt + 1}: {e}")
-                if attempt < max_retries:
-                    self.logger.info("Retrying LLM call")
-                    continue
-                raise ValueError(f"Failed to get valid JSON response after {max_retries + 1} attempts: {e}")
-
-    def _clean_llm_response(self, response: str) -> str:
-        """Clean LLM response to ensure valid JSON"""
-        # Remove backticks and markdown
-        response = re.sub(r'```json\n|```', '', response)
-        # Remove extra newlines and whitespace
-        response = re.sub(r'\n\s*\n', '\n', response.strip())
-        # Remove leading/trailing whitespace
-        response = response.strip()
-        return response
 
     def _sanitize_input(self, text: str) -> str:
         """Remove potentially harmful characters from input"""
