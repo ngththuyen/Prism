@@ -236,7 +236,8 @@ class Pipeline:
             }
     
     def _execute_concept_interpretation(self, concept: str, target_language: str = "English") -> ConceptAnalysis:
-        self.logger.info(f"Step 1: Concept Interpretation for {concept} in {target_language}")
+        self.logger.info("Step 1: Concept Interpretation")
+        self.logger.info(f"Analyzing concept: {concept} in language: {target_language}")
         return self.concept_interpreter.execute(concept, target_language=target_language)
     
     def _save_analysis(self, analysis: ConceptAnalysis, original_concept: str) -> Path:
