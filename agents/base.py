@@ -59,8 +59,8 @@ class BaseAgent(ABC):
     ) -> str:
         """Call LLM with retry logic and error handling using HTTPS API"""
 
-        # If Google GenAI is enabled and client available, prefer it (Gemini)
-        if self.use_google and self.google_client:
+        # If Google GenAI is enabled, use it
+        if self.use_google:
             for attempt in range(max_retries):
                 try:
                     # Configure generation parameters
@@ -105,6 +105,11 @@ class BaseAgent(ABC):
                     self.logger.warning(f"Google GenAI call failed (attempt {attempt + 1}/{max_retries}): {e}")
                     if attempt < max_retries - 1:
                         time.sleep(2 ** attempt)
+                        # Reconfigure API before retry
+                        try:
+                            genai.configure(api_key=self.google_api_key or self.api_key)
+                        except:
+                            pass
                         continue
                     else:
                         raise Exception(f"Google GenAI calls failed after {max_retries} attempts. Last error: {e}")
