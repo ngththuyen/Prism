@@ -17,17 +17,6 @@ from agents.manim_models import (
     AnimationResult, AnimationConfig, AnimationMetadata
 )
 from rendering.manim_renderer import ManimRenderer
-from manim import rate_functions
-
-# Map our easing types to Manim rate functions
-EASING_TO_RATE_FUNC = {
-    'linear': rate_functions.linear,
-    'ease_in': rate_functions.ease_in_cubic,
-    'ease_out': rate_functions.ease_out_cubic,
-    'ease_in_out': rate_functions.ease_in_out_cubic,
-    'smooth': rate_functions.smooth,
-    'rush_into': rate_functions.rush_into,
-    'rush_from': rate_functions.rush_from,
     'exponential_decay': rate_functions.exponential_decay
 }
 
@@ -759,6 +748,29 @@ class {class_name}(Scene):
                 token_usage=self.get_token_usage()
             )
 
+    def _clean_parameters(self, parameters: dict) -> dict:
+        """
+        Clean parameters by removing unsupported attributes like 'easing'
+        while preserving the original structure.
+        """
+        if not isinstance(parameters, dict):
+            return parameters
+        
+        # Create a new dict to avoid modifying the original
+        cleaned = parameters.copy()
+        # Remove easing if present
+        cleaned.pop('easing', None)
+        
+        # Clean nested dictionaries and lists
+        for key, value in cleaned.items():
+            if isinstance(value, dict):
+                cleaned[key] = self._clean_parameters(value)
+            elif isinstance(value, list):
+                cleaned[key] = [self._clean_parameters(item) if isinstance(item, dict) else item 
+                              for item in value]
+        
+        return cleaned
+
     def _generate_scene_plans(self, concept_analysis: ConceptAnalysis) -> tuple[List[ScenePlan], Dict[str, Any]]:
         """Generate scene plans from concept analysis"""
 
@@ -782,6 +794,12 @@ class {class_name}(Scene):
             scene_plans = []
             for plan_data in response_json.get("scene_plans", []):
                 try:
+                    # Clean parameters in actions before creating ScenePlan
+                    if 'actions' in plan_data:
+                        for action in plan_data['actions']:
+                            if 'parameters' in action:
+                                action['parameters'] = self._clean_parameters(action['parameters'])
+                    
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
                 except Exception as e:
