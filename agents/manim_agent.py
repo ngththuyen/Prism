@@ -4,7 +4,6 @@ import re
 import json
 import tempfile
 import subprocess
-import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -18,13 +17,6 @@ from agents.manim_models import (
 )
 from rendering.manim_renderer import ManimRenderer
 
-# Ensure UTF-8 encoding for stdout/stderr and logging
-try:
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
-except Exception:
-    pass
-logging.basicConfig(encoding='utf-8')
 
 class ManimAgent(BaseAgent):
     """
@@ -73,10 +65,7 @@ class ManimAgent(BaseAgent):
 
 1. **Scene Structure**:
    - Create 1–2 scenes per sub-concept (maximum 8 scenes total)
-   - Target total video duration ≈ {total_target_duration}s; scale the number of scenes and each scene length accordingly.
-   - For short videos (~30s): prefer 2–3 compact scenes, each 8–12s.
-   - For medium (~60s): 3–5 scenes, each 12–20s.
-   - For long (~120s): 4–8 scenes, each 20–30s.
+   - Each scene should be 30–45 seconds long
    - Build scenes logically following sub-concept dependencies
    - Start with foundations, progressively add complexity
 
@@ -84,7 +73,6 @@ class ManimAgent(BaseAgent):
    - Use clear, educational visual style (dark background, bright elements)
    - Include mathematical notation, equations, diagrams
    - Show relationships and transformations visually
-   - Prefer symbols, math notation, arrows, and short neutral labels over long text. Avoid English prose inside the scene; rely on subtitles for language-specific narration.
    - Use color coding consistently:
      - Blue (#3B82F6) for known/assumed quantities
      - Green (#22C55E) for newly introduced concepts
@@ -111,7 +99,7 @@ class ManimAgent(BaseAgent):
      - move/highlight: 3-5s
      - fade_in/out: 2-5s
      - wait (narration): 2-4s
-   - For smooth animations, use appropriate rate functions in the generated Manim code.
+   - Prefer easing that reads smoothly (ease-in-out). Include `"parameters": {"easing": "ease_in_out"}` when relevant.
 
 6. **Educational Flow**:
    - Start with context/overview
@@ -121,7 +109,6 @@ class ManimAgent(BaseAgent):
 
 7. **Element Naming**:
    - Use descriptive, stable targets (e.g., "bayes_equation", "likelihood_label", "frequency_grid") reused across scenes.
-   - Prefer language-agnostic, short labels (e.g., symbols, abbreviations) for on-screen text. Avoid full sentences.
    - When transforming, specify `"parameters": {"from": "<old_target>", "to": "<new_target>"}` where helpful.
 
 **OUTPUT FORMAT**:
@@ -554,7 +541,6 @@ SIMPLE 2D-ONLY MODE (STRICT)
    - Use **`Text`** for plain text, **`MathTex`** for math, **`Tex`** for LaTeX (non-math).
    - Allowed 2D mobjects: `Dot, Line, Arrow, Vector, Circle, Square, Rectangle, Triangle, NumberPlane, Axes, Brace, SurroundingRectangle, Text, MathTex, Tex, VGroup`.
    - Unsupported elements in the plan (e.g., complex “diagram” types) must be **downgraded** to simple shapes + labels (e.g., boxes, lines, arrows, small groups of dots).
-   - Prefer `MathTex` and symbols over long `Text`. Avoid English sentences in on-screen `Text`; keep labels short, neutral, or symbolic.
 
 3) **Action → Code Mapping (Use Only These)**
    - `"write"` → `self.play(Write(obj))`
@@ -594,8 +580,7 @@ SIMPLE 2D-ONLY MODE (STRICT)
    - Prefer `next_to`, `to_edge`, small `shift` values; avoid dense stacking.
    - If multiple texts/equations appear, place them **vertically** with `next_to(prev, DOWN)`.
    - Keep font sizes moderate (e.g., `Text(..., font_size=36–48)`) to avoid overflow.
-   - Keep explanation text, calculation and the visualization separate to avoid overlapping.
-   - If a label would be long, replace it with a short symbol or abbreviation and rely on subtitles for explanations.
+   - Keep explaination text, calculation and the visualization seperate to avoid overlapping
 
 8) **Flow (Minimal & Clear)**
    - Brief title (2–3s), then step-by-step reveal matching the order of `actions`.
@@ -724,14 +709,8 @@ class {class_name}(Scene):
         user_message = f"Analyze this STEM concept and create scene plans:\n\n{json.dumps(concept_analysis.model_dump(), indent=2)}"
 
         try:
-            # Format system prompt with both total target duration and embedded concept analysis
-            formatted_system_prompt = self.SCENE_PLANNING_PROMPT.format(
-                total_target_duration=self.config.total_video_duration_target,
-                concept_analysis=json.dumps(concept_analysis.model_dump(), indent=2)
-            )
-
             response_json = self._call_llm_structured(
-                system_prompt=formatted_system_prompt,
+                system_prompt=self.SCENE_PLANNING_PROMPT,
                 user_message=user_message,
                 temperature=self.config.temperature,
                 max_retries=3
@@ -740,21 +719,11 @@ class {class_name}(Scene):
             # Parse and validate scene plans
             scene_plans = []
             for plan_data in response_json.get("scene_plans", []):
-                # --- Sanitize actions: move any top-level 'from'/'to' into 'parameters' ---
-                if "actions" in plan_data:
-                    for action in plan_data["actions"]:
-                        for key in ["from", "to"]:
-                            if key in action:
-                                if "parameters" not in action or not isinstance(action["parameters"], dict):
-                                    action["parameters"] = {}
-                                # Move the value into parameters
-                                action["parameters"][key] = action[key]
-                                del action[key]
                 try:
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
                 except Exception as e:
-                    self.logger.warning(f"Invalid scene plan data: {e}\nProblematic plan_data: {json.dumps(plan_data, ensure_ascii=False, indent=2)}")
+                    self.logger.warning(f"Invalid scene plan data: {e}")
                     continue
 
             return scene_plans, response_json
@@ -802,15 +771,10 @@ class {class_name}(Scene):
                 self.logger.debug(f"First action parameters: {scene_plan.actions[0].parameters if scene_plan.actions else 'N/A'}")
 
                 try:
-                    # Compute per-scene target duration from config
-                    # Roughly distribute total target across planned scenes with a small buffer
-                    num_scenes = max(len(scene_plans), 1)
-                    per_scene = max(6, min(self.config.max_scene_duration, int(self.config.total_video_duration_target / num_scenes)))
-
                     formatted_prompt = self.CODE_GENERATION_PROMPT.format(
                         scene_plan=scene_plan_json,
                         class_name=class_name,
-                        target_duration=str(per_scene)
+                        target_duration="25-30"
                     )
                     self.logger.debug(f"System prompt formatted successfully, length: {len(formatted_prompt)}")
                 except Exception as fmt_error:
@@ -1141,4 +1105,3 @@ class {class_name}(Scene):
             "config": self.config.model_dump(),
             "renderer_status": "ready" if self.renderer.validate_manim_installation() else "not_ready"
         }
-

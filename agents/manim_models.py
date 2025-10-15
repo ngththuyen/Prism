@@ -1,21 +1,19 @@
-﻿from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Tuple
 from enum import Enum
 import re
 
 
+
+
 class SceneAction(BaseModel):
-    """
-    Represents a single visual action within a scene.
-    WARNING: Do not add any top-level field named 'from' or 'to'.
-    The 'parameters' field is a free-form dict and can contain any keys, including 'from' and 'to'.
-    """
+    """Represents a single visual action within a scene"""
     action_type: str
     element_type: str
     description: str
     target: str
     duration: float
-    parameters: Dict[str, Any] = Field(default_factory=dict, description="Flexible parameters for the action, can include any keys, including 'from', 'to', etc.")
+    parameters: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ScenePlan(BaseModel):
@@ -26,7 +24,6 @@ class ScenePlan(BaseModel):
     sub_concept_id: str
     actions: List[SceneAction]
     scene_dependencies: List[str] = Field(default_factory=list)
-
 
 class ManimSceneCode(BaseModel):
     """Generated Manim code for a single scene"""
@@ -87,12 +84,9 @@ class AnimationConfig(BaseModel):
 
 
 class SceneTransition(BaseModel):
-    """
-    Defines how scenes transition to each other.
-    WARNING: Do not use 'from' or 'to' as top-level fields. Use 'source_scene' and 'target_scene' instead.
-    """
-    source_scene: str
-    target_scene: str
+    """Defines how scenes transition to each other"""
+    from_scene: str
+    to_scene: str
     transition_type: str = "fade"
     duration: float = 0.5
 

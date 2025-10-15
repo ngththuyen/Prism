@@ -26,14 +26,9 @@ class Pipeline:
         self._setup_logging()
 
         # Initialize agents
-        # Validate reasoning key at runtime for Google provider
-        reasoning_key = settings.google_api_key
-        if not reasoning_key or reasoning_key.strip() == "":
-            raise RuntimeError("Missing GOOGLE_API_KEY: please set it in .env to use Gemini for reasoning.")
-
         self.concept_interpreter = ConceptInterpreterAgent(
-            api_key=reasoning_key,
-            base_url="",
+            api_key=settings.openrouter_api_key,
+            base_url=settings.openrouter_base_url,
             model=settings.reasoning_model,
             reasoning_tokens=settings.interpreter_reasoning_tokens,
             reasoning_effort=settings.interpreter_reasoning_effort
@@ -53,8 +48,8 @@ class Pipeline:
         )
 
         self.manim_agent = ManimAgent(
-            api_key=reasoning_key,
-            base_url="",
+            api_key=settings.openrouter_api_key,
+            base_url=settings.openrouter_base_url,
             model=settings.reasoning_model,
             output_dir=settings.output_dir,
             config=animation_config,
@@ -89,7 +84,6 @@ class Pipeline:
             subtitle_background=settings.subtitle_background,
             subtitle_background_opacity=settings.subtitle_background_opacity,
             subtitle_position=settings.subtitle_position,
-            subtitle_font_path=settings.subtitle_font_path,
             max_retries=settings.video_composition_max_retries,
             timeout=settings.video_composition_timeout
         )
@@ -112,8 +106,7 @@ class Pipeline:
         self,
         concept: str,
         progress_callback: Optional[Callable[[str, float], None]] = None,
-        target_language: str = "English",
-        duration_preset: Optional[str] = None
+        target_language: str = "English"
     ) -> Dict[str, Any]:
         """
         Execute the full pipeline (Phase 4: concept interpretation + animation generation + script generation + audio synthesis + video composition)
@@ -131,21 +124,6 @@ class Pipeline:
         self.logger.info(f"Starting pipeline for concept: {concept} in {target_language}")
         
         try:
-            # Apply duration preset (if provided) to influence planning and rendering lengths
-            if duration_preset:
-                preset = str(duration_preset).lower()
-                if "ngắn" in preset or "short" in preset or "~30" in preset:
-                    self.manim_agent.config.total_video_duration_target = 30.0
-                    self.manim_agent.config.max_scene_duration = 12.0
-                elif "trung" in preset or "medium" in preset or "~60" in preset:
-                    self.manim_agent.config.total_video_duration_target = 60.0
-                    self.manim_agent.config.max_scene_duration = 20.0
-                elif "dài" in preset or "long" in preset or "~120" in preset:
-                    self.manim_agent.config.total_video_duration_target = 120.0
-                    self.manim_agent.config.max_scene_duration = 30.0
-                else:
-                    self.manim_agent.config.total_video_duration_target = 60.0
-                    self.manim_agent.config.max_scene_duration = 20.0
             # Step 1: Concept Interpretation
             if progress_callback:
                 progress_callback("Analyzing concept...", 0.1)
@@ -399,13 +377,10 @@ class Pipeline:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"{animation_name}_final_{timestamp}.mp4"
 
-        # Use generated SRT subtitles if available
-        subtitle_path = script_path if script_path else None
-
         return self.video_compositor.execute(
             video_path=animation_path,
             audio_path=audio_path,
-            subtitle_path=subtitle_path,
+            subtitle_path=None,
             output_filename=output_filename
         )
 

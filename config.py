@@ -7,54 +7,16 @@ from typing import Optional, Any
 
 class Settings(BaseSettings):
     # API Keys
-    openrouter_api_key: Optional[str] = None
-    google_api_key: Optional[str] = None
+    openrouter_api_key: str
+    google_api_key: str
     elevenlabs_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Create necessary directories
-        self.output_dir.mkdir(exist_ok=True)
-        Path("cache").mkdir(exist_ok=True)
-        Path("temp").mkdir(exist_ok=True)
-
-    @validator('tts_provider')
-    def validate_tts_provider(cls, v, values):
-        if v not in ['elevenlabs', 'openai']:
-            raise ValueError('Invalid TTS provider. Must be either "elevenlabs" or "openai"')
-        
-        # Validate required API keys based on provider
-        if v == 'elevenlabs' and not values.get('elevenlabs_api_key'):
-            raise ValueError('ElevenLabs API key required when using ElevenLabs provider')
-        if v == 'openai' and not values.get('openai_api_key'):
-            raise ValueError('OpenAI API key required when using OpenAI provider')
-        
-        return v
-
-    @validator('llm_provider')
-    def validate_llm_provider(cls, v, values):
-        if v not in ['google', 'openrouter']:
-            raise ValueError('Invalid LLM provider. Must be either "google" or "openrouter"')
-        
-        # Validate required API keys based on provider
-        if v == 'google' and not values.get('google_api_key'):
-            raise ValueError('Google API key required when using Google provider')
-        if v == 'openrouter' and not values.get('openrouter_api_key'):
-            raise ValueError('OpenRouter API key required when using OpenRouter provider')
-        
-        return v
 
     # OpenRouter Configuration
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
-    # LLM Provider Selection: "google" (Gemini) or "openrouter"
-    llm_provider: str = "google"
-
-    # Model Selection
-    # If llm_provider == "google": use Gemini model IDs
-    # If llm_provider == "openrouter": use OpenRouter model IDs
-    reasoning_model: str = "gemini-2.5-pro"
+    # Model Selection (OpenRouter model IDs)
+    reasoning_model: str = "anthropic/claude-sonnet-4.5"
     multimodal_model: str = "gemini-2.5-pro"
 
     # TTS Provider Selection
@@ -169,7 +131,6 @@ class Settings(BaseSettings):
     subtitle_background: bool = True
     subtitle_background_opacity: float = 0.5
     subtitle_position: str = "bottom"  # top, center, bottom
-    subtitle_font_path: Optional[str] = None  # e.g., path to a font with full Vietnamese glyphs
 
     # Video Composition Settings
     video_composition_max_retries: int = 3
@@ -180,7 +141,7 @@ class Settings(BaseSettings):
     llm_timeout: int = 120  # seconds
 
     # Language Settings
-    target_language: str = "Vietnamese"  # Default for Prism; Supported: English, Chinese, Spanish, Vietnamese
+    target_language: str = "English"  # Supported: English, Chinese, Spanish, Vietnamese
 
     @validator('elevenlabs_api_key', 'openai_api_key', pre=True)
     def validate_tts_keys(cls, v, values):
@@ -190,9 +151,8 @@ class Settings(BaseSettings):
             openai_key = values['openai_api_key']
 
             # If both are None or empty, raise an error
-            # Allow startup without keys; providers are checked at runtime
-            # if (not elevenlabs_key or elevenlabs_key.strip() == '') and (not openai_key or openai_key.strip() == ''):
-            #     raise ValueError('At least one TTS API key (elevenlabs_api_key or openai_api_key) must be provided')
+            if (not elevenlabs_key or elevenlabs_key.strip() == '') and (not openai_key or openai_key.strip() == ''):
+                raise ValueError('At least one TTS API key (elevenlabs_api_key or openai_api_key) must be provided')
 
         return v
 

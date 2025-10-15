@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Gradio web app for Prism
-Simple UI: Nhập chủ đề -> Tiến trình -> Xem video
+Gradio web app for STEM Animation Generator
+Simple UI: Input concept -> Progress bar -> Video player
 """
 
 import gradio as gr
@@ -10,7 +10,7 @@ from pathlib import Path
 
 pipeline = Pipeline()
 
-def generate_animation(concept: str, language: str = "Vietnamese", duration_preset: str = "Ngắn (~30s)", progress=gr.Progress()):
+def generate_animation(concept: str, language: str = "English", progress=gr.Progress()):
     """
     Main generation function called by Gradio
 
@@ -28,12 +28,7 @@ def generate_animation(concept: str, language: str = "Vietnamese", duration_pres
     def update_progress(message: str, percentage: float):
         progress(percentage, desc=message)
     
-    result = pipeline.run(
-        concept,
-        progress_callback=update_progress,
-        target_language=language,
-        duration_preset=duration_preset
-    )
+    result = pipeline.run(concept, progress_callback=update_progress, target_language=language)
     
     if result["status"] == "success" and result.get("video_result"):
         video_path = result["video_result"]["output_path"]
@@ -44,47 +39,42 @@ def generate_animation(concept: str, language: str = "Vietnamese", duration_pres
     else:
         return None
 
-with gr.Blocks(title="Prism") as demo:
-    gr.Markdown("# Prism")
-    gr.Markdown("Biến các khái niệm STEM thành video minh hoạ có thuyết minh")
+with gr.Blocks(title="STEMViz") as demo:
+    gr.Markdown("# STEMViz")
+    gr.Markdown("Transform STEM concepts into narrated educational animations")
     
     with gr.Row():
         with gr.Column():
             concept_input = gr.Textbox(
-                label="Nhập chủ đề STEM",
-                placeholder="Ví dụ: Giải thích Thuật toán Sắp xếp nổi bọt, Định lý Bayes, Gradient Descent...",
+                label="Enter STEM Concept",
+                placeholder="e.g., Explain Bubble Sort, Bayes' Theorem, Gradient Descent...",
                 lines=2
             )
             language_dropdown = gr.Dropdown(
                 choices=["English", "Chinese", "Spanish", "Vietnamese"],
-                value="Vietnamese",
-                label="Ngôn ngữ thuyết minh"
+                value="English",
+                label="Narration Language"
             )
-            duration_dropdown = gr.Dropdown(
-                choices=["Ngắn (~30s)", "Trung bình (~60s)", "Dài (~120s)"],
-                value="Ngắn (~30s)",
-                label="Thời lượng video"
-            )
-            generate_btn = gr.Button("Tạo video", variant="primary")
+            generate_btn = gr.Button("Generate Animation", variant="primary")
         
     with gr.Row():
         video_output = gr.Video(
-            label="Video đã tạo",
+            label="Generated Animation",
             autoplay=True
         )
     
     gr.Examples(
         examples=[
-            ["Giải thích thuật toán Sắp xếp nổi bọt (Bubble Sort)"],
-            ["Trình bày Định lý Bayes trong chẩn đoán y khoa"],
-            ["Giải thích trực quan Gradient Descent"]
+            ["Explain Bubble Sort"],
+            ["Explain Bayes' Theorem"],
+            ["Explain Gradient Descent"]
         ],
         inputs=concept_input
     )
     
     generate_btn.click(
         fn=generate_animation,
-        inputs=[concept_input, language_dropdown, duration_dropdown],
+        inputs=[concept_input, language_dropdown],
         outputs=video_output
     )
 
