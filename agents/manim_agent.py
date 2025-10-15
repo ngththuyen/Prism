@@ -17,18 +17,6 @@ from agents.manim_models import (
     AnimationResult, AnimationConfig, AnimationMetadata
 )
 from rendering.manim_renderer import ManimRenderer
-    'exponential_decay': rate_functions.exponential_decay
-}
-
-# Map animation styles to Manim animation classes
-ANIMATION_STYLE_MAP = {
-    'fade': 'FadeIn',
-    'grow': 'GrowFromCenter',
-    'transform': 'Transform',
-    'write': 'Write',
-    'indicate': 'Indicate',
-    'focus': 'FocusOn'
-}
 
 # Ensure UTF-8 encoding for stdout/stderr and logging
 try:
@@ -38,29 +26,32 @@ except Exception:
     pass
 logging.basicConfig(encoding='utf-8')
 
-
-def remove_easing_key(parameters: dict) -> None:
-    """
-    Recursively removes 'easing' key from a dictionary and all nested dictionaries.
-    
-    Args:
-        parameters: Dictionary to remove 'easing' key from
-    """
-    if isinstance(parameters, dict):
-        parameters.pop('easing', None)
-        for value in parameters.values():
-            if isinstance(value, (dict, list)):
-                remove_easing_key(value)
-    elif isinstance(parameters, list):
-        for item in parameters:
-            if isinstance(item, (dict, list)):
-                remove_easing_key(item)
-
 class ManimAgent(BaseAgent):
     """
     Manim Agent: Transforms structured concept analysis into visual animations
     using scene planning and Manim code generation with <manim> tag extraction.
     """
+
+    @staticmethod
+    def _clean_parameters(parameters: dict) -> dict:
+        """
+        Clean parameters by removing unsupported attributes like 'easing'
+        while preserving the original structure.
+        """
+        if not isinstance(parameters, dict):
+            return parameters
+        
+        cleaned = parameters.copy()
+        cleaned.pop('easing', None)
+        
+        for key, value in cleaned.items():
+            if isinstance(value, dict):
+                cleaned[key] = ManimAgent._clean_parameters(value)
+            elif isinstance(value, list):
+                cleaned[key] = [ManimAgent._clean_parameters(item) if isinstance(item, dict) else item 
+                              for item in value]
+        
+        return cleaned
 
     def __init__(
         self,
@@ -1206,7 +1197,7 @@ def remove_easing_key(obj):
         if 'easing' in obj:
             del obj['easing']
         for k, v in obj.items():
-            remove_easing_key(v)
+            self._clean_parameters(v)
     elif isinstance(obj, list):
         for item in obj:
-            remove_easing_key(item)
+            self._clean_parameters(item)
