@@ -744,7 +744,7 @@ class {class_name}(Scene):
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
                 except Exception as e:
-                    self.logger.warning(f"Invalid scene plan data: {e}")
+                    self.logger.warning(f"Invalid scene plan data: {e}\nProblematic plan_data: {json.dumps(plan_data, ensure_ascii=False, indent=2)}")
                     continue
 
             return scene_plans, response_json
