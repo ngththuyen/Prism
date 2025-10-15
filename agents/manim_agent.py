@@ -17,6 +17,29 @@ from agents.manim_models import (
     AnimationResult, AnimationConfig, AnimationMetadata
 )
 from rendering.manim_renderer import ManimRenderer
+from manim import rate_functions
+
+# Map our easing types to Manim rate functions
+EASING_TO_RATE_FUNC = {
+    'linear': rate_functions.linear,
+    'ease_in': rate_functions.ease_in_cubic,
+    'ease_out': rate_functions.ease_out_cubic,
+    'ease_in_out': rate_functions.ease_in_out_cubic,
+    'smooth': rate_functions.smooth,
+    'rush_into': rate_functions.rush_into,
+    'rush_from': rate_functions.rush_from,
+    'exponential_decay': rate_functions.exponential_decay
+}
+
+# Map animation styles to Manim animation classes
+ANIMATION_STYLE_MAP = {
+    'fade': 'FadeIn',
+    'grow': 'GrowFromCenter',
+    'transform': 'Transform',
+    'write': 'Write',
+    'indicate': 'Indicate',
+    'focus': 'FocusOn'
+}
 
 # Ensure UTF-8 encoding for stdout/stderr and logging
 try:
@@ -759,10 +782,6 @@ class {class_name}(Scene):
             scene_plans = []
             for plan_data in response_json.get("scene_plans", []):
                 try:
-                    # Loại bỏ hoàn toàn 'easing' ở mọi cấp trong parameters của mọi action
-                    for action in plan_data.get('actions', []):
-                        if 'parameters' in action:
-                            remove_easing_key(action['parameters'])
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
                 except Exception as e:
