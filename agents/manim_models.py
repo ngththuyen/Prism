@@ -1,20 +1,20 @@
-from pydantic import BaseModel, Fieldfrom pydantic import BaseModel, Fieldfrom pydantic import BaseModel, Field
+from pydantic import BaseModel, Fieldfrom pydantic import BaseModel, Fieldfrom pydantic import BaseModel, Fieldfrom pydantic import BaseModel, Field
 
 from typing import List, Optional, Dict, Any, Tuple
 
-from enum import Enumfrom typing import List, Optional, Dict, Any, Tuplefrom typing import List, Optional, Dict, Any, Tuple
+from enum import Enumfrom typing import List, Optional, Dict, Any, Tuple
 
 import re
 
-from enum import Enumfrom enum import Enum
+from enum import Enumfrom typing import List, Optional, Dict, Any, Tuplefrom typing import List, Optional, Dict, Any, Tuple
 
 
 
-class SceneAction(BaseModel):import reimport re
+class SceneAction(BaseModel):import re
 
     """Represents a single visual action within a scene"""
 
-    action_type: str
+    action_type: strfrom enum import Enumfrom enum import Enum
 
     element_type: str
 
@@ -22,7 +22,7 @@ class SceneAction(BaseModel):import reimport re
 
     target: str
 
-    duration: floatclass SceneAction(BaseModel):
+    duration: floatclass SceneAction(BaseModel):import reimport re
 
     parameters: Dict[str, Any] = Field(default_factory=dict)
 
@@ -30,39 +30,39 @@ class SceneAction(BaseModel):import reimport re
 
 
 
-class ScenePlan(BaseModel):    action_type: strclass SceneAction(BaseModel):
+class ScenePlan(BaseModel):    action_type: str
 
     """Complete plan for a single animation scene"""
 
-    id: str    element_type: str    """Represents a single visual action within a scene"""
+    id: str    element_type: str
 
     title: str
 
-    description: str    description: str    action_type: str
+    description: str    description: str
 
     sub_concept_id: str
 
-    actions: List[SceneAction]    target: str    element_type: str
+    actions: List[SceneAction]    target: str
 
     scene_dependencies: List[str] = Field(default_factory=list)
 
-    duration: float    description: str
+    duration: floatclass SceneAction(BaseModel):
 
 
 
-class ManimSceneCode(BaseModel):    parameters: Dict[str, Any] = Field(default_factory=dict)    target: str
+class ManimSceneCode(BaseModel):    parameters: Dict[str, Any] = Field(default_factory=dict)
 
     """Generated Manim code for a single scene"""
 
-    scene_id: str    duration: float
+    scene_id: str    """Represents a single visual action within a scene"""
 
     scene_name: str
 
-    manim_code: str    parameters: Dict[str, Any] = Field(default_factory=dict)
+    manim_code: str
 
     raw_llm_output: str
 
-    extraction_method: str = "tags"class ScenePlan(BaseModel):
+    extraction_method: str = "tags"class ScenePlan(BaseModel):    action_type: strclass SceneAction(BaseModel):
 
 
 
@@ -70,52 +70,169 @@ class ManimSceneCode(BaseModel):    parameters: Dict[str, Any] = Field(default_f
 
 class RenderResult(BaseModel):
 
-    """Result of rendering a single scene"""    id: strclass ScenePlan(BaseModel):
+    """Result of rendering a single scene"""    id: str    element_type: str    """Represents a single visual action within a scene"""
 
     scene_id: str
 
-    success: bool    title: str    """Complete plan for a single animation scene"""
+    success: bool    title: str
 
     video_path: Optional[str] = None
 
-    error_message: Optional[str] = None    description: str    id: str
+    error_message: Optional[str] = None    description: str    description: str    action_type: str
 
     duration: Optional[float] = None
 
-    resolution: Optional[Tuple[int, int]] = None    sub_concept_id: str    title: str
+    resolution: Optional[Tuple[int, int]] = None    sub_concept_id: str
 
     render_time: Optional[float] = None
 
-    file_size_mb: Optional[float] = None    actions: List[SceneAction]    description: str
+    file_size_mb: Optional[float] = None    actions: List[SceneAction]    target: str    element_type: str
 
 
 
-    scene_dependencies: List[str] = Field(default_factory=list)    sub_concept_id: str
+    scene_dependencies: List[str] = Field(default_factory=list)
 
 class AnimationResult(BaseModel):
 
-    """Complete result of animation generation for a concept"""    actions: List[SceneAction]
+    """Complete result of animation generation for a concept"""    duration: float    description: str
 
     success: bool
 
-    concept_id: str    scene_dependencies: List[str] = Field(default_factory=list)
+    concept_id: str
 
     total_duration: Optional[float] = None
 
-    scene_count: intclass ManimSceneCode(BaseModel):
+    scene_count: intclass ManimSceneCode(BaseModel):    parameters: Dict[str, Any] = Field(default_factory=dict)    target: str
 
     silent_animation_path: Optional[str] = None
 
-    error_message: Optional[str] = None    """Generated Manim code for a single scene"""class ManimSceneCode(BaseModel):
+    error_message: Optional[str] = None    """Generated Manim code for a single scene"""
 
 
 
-    # Detailed results    scene_id: str    """Generated Manim code for a single scene"""
+    # Detailed results    scene_id: str    duration: float
 
     scene_plan: List[ScenePlan]
 
-    scene_codes: List[ManimSceneCode]    scene_name: str    scene_id: str
+    scene_codes: List[ManimSceneCode]    scene_name: str
 
+    render_results: List[RenderResult]
+
+    manim_code: str    parameters: Dict[str, Any] = Field(default_factory=dict)
+
+    # Metadata
+
+    generation_time: Optional[float] = None    raw_llm_output: str
+
+    total_render_time: Optional[float] = None
+
+    models_used: Dict[str, str] = Field(default_factory=dict)    extraction_method: str = "tags"class ScenePlan(BaseModel):
+
+    token_usage: Dict[str, int] = Field(default_factory=dict)
+
+
+
+
+
+class AnimationConfig(BaseModel):    """Complete plan for a single animation scene"""
+
+    """Configuration for animation generation"""
+
+    quality: str = "1080p60"class RenderResult(BaseModel):
+
+    background_color: str = "#0f0f0f"
+
+    frame_rate: int = 60    """Result of rendering a single scene"""    id: strclass ScenePlan(BaseModel):
+
+    max_scene_duration: float = 30.0
+
+    total_video_duration_target: float = 120.0    scene_id: str
+
+
+
+    max_retries_per_scene: int = 3    success: bool    title: str    """Complete plan for a single animation scene"""
+
+    temperature: float = 0.7
+
+    video_path: Optional[str] = None
+
+    render_timeout: int = 300
+
+    enable_simplification: bool = True    error_message: Optional[str] = None    description: str    id: str
+
+    simplify_on_retry: bool = True
+
+    duration: Optional[float] = None
+
+
+
+class SceneTransition(BaseModel):    resolution: Optional[Tuple[int, int]] = None    sub_concept_id: str    title: str
+
+    """Defines how scenes transition to each other"""
+
+    from_scene: str    render_time: Optional[float] = None
+
+    to_scene: str
+
+    transition_type: str = "fade"    file_size_mb: Optional[float] = None    actions: List[SceneAction]    description: str
+
+    duration: float = 0.5
+
+
+
+
+
+class AnimationMetadata(BaseModel):    scene_dependencies: List[str] = Field(default_factory=list)    sub_concept_id: str
+
+    """Metadata for the complete animation generation process"""
+
+    concept_name: strclass AnimationResult(BaseModel):
+
+    timestamp: str
+
+    version: str = "2.0"    """Complete result of animation generation for a concept"""    actions: List[SceneAction]
+
+
+
+    # Generation statistics    success: bool
+
+    total_scenes_planned: int
+
+    total_scenes_rendered: int    concept_id: str    scene_dependencies: List[str] = Field(default_factory=list)
+
+    successful_renders: int
+
+    failed_renders: int    total_duration: Optional[float] = None
+
+
+
+    # Timing information    scene_count: intclass ManimSceneCode(BaseModel):
+
+    planning_time: Optional[float] = None
+
+    code_generation_time: Optional[float] = None    silent_animation_path: Optional[str] = None
+
+    rendering_time: Optional[float] = None
+
+    concatenation_time: Optional[float] = None    error_message: Optional[str] = None    """Generated Manim code for a single scene"""class ManimSceneCode(BaseModel):
+
+    total_time: Optional[float] = None
+
+
+
+    # Resource usage
+
+    total_tokens_used: int = 0    # Detailed results    scene_id: str    """Generated Manim code for a single scene"""
+
+    estimated_cost_usd: Optional[float] = None
+
+    scene_plan: List[ScenePlan]
+
+    # File information
+
+    total_video_size_mb: Optional[float] = None    scene_codes: List[ManimSceneCode]    scene_name: str    scene_id: str
+
+    intermediate_files_count: int = 0
     render_results: List[RenderResult]
 
     manim_code: str    scene_name: str
