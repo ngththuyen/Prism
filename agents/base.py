@@ -49,124 +49,134 @@ class BaseAgent(ABC):
                 self.use_google = False
                 self.use_google = False
 
-    def _call_llm(
-        self,
-        system_prompt: str,
-        user_message: str,
-        temperature: float = 1.0,
-        max_retries: int = 3,
-        json_mode: bool = False,
-    ) -> str:
-        """Call LLM with retry logic and error handling using HTTPS API"""
+def _call_llm(
+    self,
+    system_prompt: str,
+    user_message: str,
+    temperature: float = 1.0,
+    max_retries: int = 3,
+    json_mode: bool = False,
+) -> str:
+    """Call LLM with retry logic and error handling"""
 
-        # If Google GenAI is enabled, use it
-        if self.use_google:
-            for attempt in range(max_retries):
-                try:
-                    # Initialize the model with the system prompt
-                    model = genai.GenerativeModel(
-                        model_name=self.model,
-                        system_instruction=system_prompt
-                    )
-                    
-                    # Configure generation parameters
-                    generation_config = genai.types.GenerationConfig(
-                        temperature=temperature,
-                        max_output_tokens=int(self.reasoning_tokens) if self.reasoning_tokens else 2048,
-                    )
-
-                    # Generate content from the user message
-                    response = model.generate_content(
-                        user_message,
-                        generation_config=generation_config
-                    )
-
-                    # Extract text content from response
-                    content = response.text
-                    
-                    # Rough token tracking (approximate)
-                    try:
-                        prompt_tokens = len(system_prompt.split()) + len(user_message.split())
-                        completion_tokens = len(content.split())
-                        self.prompt_tokens += prompt_tokens
-                        self.completion_tokens += completion_tokens
-                        self.total_tokens += prompt_tokens + completion_tokens
-                    except Exception as e:
-                        self.logger.warning(f"Failed to track tokens: {e}")
-
-                    self.logger.info(f"Google GenAI LLM call successful (attempt {attempt + 1})")
-                    return content
-
-                except Exception as e:
-                    self.logger.warning(f"Google GenAI call failed (attempt {attempt + 1}/{max_retries}): {e}")
-                    if attempt < max_retries - 1:
-                        time.sleep(2 ** attempt)
-                        continue
-                    else:
-                        raise Exception(f"Google GenAI calls failed after {max_retries} attempts. Last error: {e}")
-
-        # Only use OpenRouter if explicitly configured (use_google=False) and API key provided
+    # If Google GenAI is enabled, use it
+    if self.use_google:
         for attempt in range(max_retries):
             try:
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message},
-                ]
-
-                headers = {
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"
-                }
-
-                payload = {
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": temperature,
-                }
-
-                if self.reasoning_tokens is not None:
-                    payload["reasoning"] = {"max_tokens": int(self.reasoning_tokens), "enabled": True}
-                    
-                if self.reasoning_effort is not None:
-                    payload["reasoning"] = {"effort": self.reasoning_effort, "enabled": True}
-
-                if json_mode:
-                    payload["response_format"] = {"type": "json_object"}
-
-                url = f"{self.base_url}/chat/completions"
-                
-                response = requests.post(
-                    url,
-                    headers=headers,
-                    json=payload,
-                    timeout=120
+                # Initialize the model with the system prompt
+                model = genai.GenerativeModel(
+                    model_name=self.model,
+                    system_instruction=system_prompt
                 )
                 
-                response.raise_for_status()
-                response_data = response.json()
+                # Configure generation parameters
+                generation_config = genai.types.GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=int(self.reasoning_tokens) if self.reasoning_tokens else 8192,
+                )
+                
+                # ⭐ FIX: Add JSON instruction if json_mode is True
+                actual_user_message = user_message
+                if json_mode:
+                    actual_user_message = f"{user_message}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no code blocks, no extra text."
+                    generation_config.response_mime_type = "application/json"
 
-                if "usage" in response_data:
-                    self.prompt_tokens += response_data["usage"].get("prompt_tokens", 0)
-                    self.completion_tokens += response_data["usage"].get("completion_tokens", 0)
-                    self.total_tokens += response_data["usage"].get("total_tokens", 0)
+                # Generate content from the user message
+                response = model.generate_content(
+                    actual_user_message,
+                    generation_config=generation_config
+                )
 
-                content = response_data["choices"][0]["message"]["content"]
-                self.logger.info(f"LLM call successful (attempt {attempt + 1})")
+                # ⭐ FIX: Check if response is valid
+                if not response or not response.text:
+                    raise Exception(f"Empty response from Gemini. Finish reason: {response.candidates[0].finish_reason if response.candidates else 'unknown'}")
 
+                # Extract text content from response
+                content = response.text
+                
+                # Rough token tracking (approximate)
+                try:
+                    prompt_tokens = len(system_prompt.split()) + len(user_message.split())
+                    completion_tokens = len(content.split())
+                    self.prompt_tokens += prompt_tokens
+                    self.completion_tokens += completion_tokens
+                    self.total_tokens += prompt_tokens + completion_tokens
+                except Exception as e:
+                    self.logger.warning(f"Failed to track tokens: {e}")
+
+                self.logger.info(f"Google GenAI LLM call successful (attempt {attempt + 1})")
                 return content
 
             except Exception as e:
-                self.logger.warning(
-                    f"LLM call failed (attempt {attempt + 1}/{max_retries}): {e}"
-                )
-
+                self.logger.warning(f"Google GenAI call failed (attempt {attempt + 1}/{max_retries}): {e}")
                 if attempt < max_retries - 1:
-                    wait_time = 2**attempt
-                    time.sleep(wait_time)
+                    time.sleep(2 ** attempt)
+                    continue
                 else:
-                    raise Exception(
-                        f"LLM call failed after {max_retries} attempts: {e}"
-                    )
+                    raise Exception(f"Google GenAI calls failed after {max_retries} attempts. Last error: {e}")
+
+    # OpenRouter fallback (existing code remains the same)
+    for attempt in range(max_retries):
+        try:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ]
+
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+            }
+
+            if self.reasoning_tokens is not None:
+                payload["reasoning"] = {"max_tokens": int(self.reasoning_tokens), "enabled": True}
+                
+            if self.reasoning_effort is not None:
+                payload["reasoning"] = {"effort": self.reasoning_effort, "enabled": True}
+
+            if json_mode:
+                payload["response_format"] = {"type": "json_object"}
+
+            url = f"{self.base_url}/chat/completions"
+            
+            response = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=120
+            )
+            
+            response.raise_for_status()
+            response_data = response.json()
+
+            if "usage" in response_data:
+                self.prompt_tokens += response_data["usage"].get("prompt_tokens", 0)
+                self.completion_tokens += response_data["usage"].get("completion_tokens", 0)
+                self.total_tokens += response_data["usage"].get("total_tokens", 0)
+
+            content = response_data["choices"][0]["message"]["content"]
+            self.logger.info(f"LLM call successful (attempt {attempt + 1})")
+
+            return content
+
+        except Exception as e:
+            self.logger.warning(
+                f"LLM call failed (attempt {attempt + 1}/{max_retries}): {e}"
+            )
+
+            if attempt < max_retries - 1:
+                wait_time = 2**attempt
+                time.sleep(wait_time)
+            else:
+                raise Exception(
+                    f"LLM call failed after {max_retries} attempts: {e}"
+                )
 
     def _call_llm_structured(
         self,

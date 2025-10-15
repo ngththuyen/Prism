@@ -243,69 +243,91 @@ Because the ratio stays constant, slope is identical anywhere on the line.
                 model_used=self.model
             )
 
-    def _generate_script_with_gemini(self, video_file: Path, target_language: str = "English", video_duration: float = 0.0) -> Optional[str]:
-        """Generate script using Gemini"""
+def _generate_script_with_gemini(self, video_file: Path, target_language: str = "English", video_duration: float = 0.0) -> Optional[str]:
+    """Generate script using Gemini"""
 
-        for attempt in range(self.max_retries):
-            try:
-                self.logger.info(f"Uploading video to Gemini (attempt {attempt + 1})")
+    for attempt in range(self.max_retries):
+        try:
+            self.logger.info(f"Uploading video to Gemini (attempt {attempt + 1})")
 
-                # Upload video file to Gemini
-                uploaded_file = self.client.files.upload(file=str(video_file))
+            # ⭐ FIX: Upload video file to Gemini Files API
+            uploaded_file = self.client.files.upload(file=str(video_file))
 
-                # Wait for file to be processed
-                self.logger.info("Waiting for file processing...")
-                while uploaded_file.state == "PROCESSING":
-                    time.sleep(2)
-                    uploaded_file = self.client.files.get(name=uploaded_file.name)
+            # Wait for file to be processed
+            self.logger.info("Waiting for file processing...")
+            max_wait = 60  # Maximum 60 seconds
+            wait_time = 0
+            while uploaded_file.state.name == "PROCESSING":
+                time.sleep(2)
+                wait_time += 2
+                if wait_time > max_wait:
+                    raise ValueError("File processing timeout")
+                uploaded_file = self.client.files.get(name=uploaded_file.name)
 
-                if uploaded_file.state == "FAILED":
-                    raise ValueError(f"File processing failed: {uploaded_file.state}")
+            if uploaded_file.state.name == "FAILED":
+                raise ValueError(f"File processing failed: {uploaded_file.state}")
 
-                if uploaded_file.state != "ACTIVE":
-                    raise ValueError(f"Unexpected file state: {uploaded_file.state}")
+            if uploaded_file.state.name != "ACTIVE":
+                raise ValueError(f"Unexpected file state: {uploaded_file.state}")
 
-                self.logger.info(f"File uploaded successfully: {uploaded_file.name}")
+            self.logger.info(f"File uploaded successfully: {uploaded_file.name}")
 
-                # Generate script with Gemini
-                self.logger.info(f"Generating script with {self.model} in {target_language}")
-                video_duration_minutes = int(video_duration // 60)
-                video_duration_seconds = video_duration % 60
-                prompt = self.SCRIPT_GENERATION_PROMPT.format(
-                    target_language=target_language,
-                    video_duration=video_duration,
-                    video_duration_minutes=video_duration_minutes,
-                    video_duration_seconds=video_duration_seconds
+            # Generate script with Gemini
+            self.logger.info(f"Generating script with {self.model} in {target_language}")
+            video_duration_minutes = int(video_duration // 60)
+            video_duration_seconds = video_duration % 60
+            prompt = self.SCRIPT_GENERATION_PROMPT.format(
+                target_language=target_language,
+                video_duration=video_duration,
+                video_duration_minutes=video_duration_minutes,
+                video_duration_seconds=video_duration_seconds
+            )
+            
+            # ⭐ FIX: Use correct API format for Gemini 2.0
+            model = genai.GenerativeModel(model_name=self.model)
+            
+            response = model.generate_content(
+                [uploaded_file, prompt],
+                generation_config=genai.types.GenerationConfig(
+                    temperature=self.temperature,
+                    max_output_tokens=8192
                 )
-                response = self.client.models.generate_content(
-                    model=self.model,
-                    contents=[uploaded_file, prompt],
-                    config=types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_budget=2048))
-                )
+            )
 
-                script_content = response.text
-                self.logger.info("Received script content from Gemini")
+            # ⭐ FIX: Check response validity
+            if not response or not response.text:
+                raise ValueError(f"Empty response from Gemini. Finish reason: {response.candidates[0].finish_reason if response.candidates else 'unknown'}")
 
-                # Extract SRT content from <srt> tags
-                srt_content = self._extract_srt_from_response(script_content)
+            script_content = response.text
+            self.logger.info("Received script content from Gemini")
 
-                if srt_content:
-                    return srt_content
-                else:
-                    self.logger.warning(f"No SRT content found in response (attempt {attempt + 1})")
-                    if attempt < self.max_retries - 1:
-                        continue
-                    else:
-                        raise ValueError("Could not extract SRT content from Gemini response")
+            # Extract SRT content from <srt> tags
+            srt_content = self._extract_srt_from_response(script_content)
 
-            except Exception as e:
-                self.logger.warning(f"Gemini API call failed (attempt {attempt + 1}): {e}")
+            if srt_content:
+                # ⭐ FIX: Clean up uploaded file
+                try:
+                    self.client.files.delete(name=uploaded_file.name)
+                    self.logger.info(f"Deleted uploaded file: {uploaded_file.name}")
+                except Exception as e:
+                    self.logger.warning(f"Could not delete uploaded file: {e}")
+                
+                return srt_content
+            else:
+                self.logger.warning(f"No SRT content found in response (attempt {attempt + 1})")
                 if attempt < self.max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
+                    continue
                 else:
-                    raise
+                    raise ValueError("Could not extract SRT content from Gemini response")
 
-        return None
+        except Exception as e:
+            self.logger.warning(f"Gemini API call failed (attempt {attempt + 1}): {e}")
+            if attempt < self.max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff
+            else:
+                raise
+
+    return None
 
     def _extract_srt_from_response(self, response: str) -> Optional[str]:
         """Extract SRT content from response wrapped in <srt> tags"""
