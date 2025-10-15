@@ -148,3 +148,135 @@ Follow the guidelines and return a JSON object matching the specified structure.
         """Remove potentially harmful characters from input"""
         sanitized = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
         return sanitized
+    
+    def analyze_concept(self, concept: str, language: str = "english") -> Dict[str, Any]:
+        """
+        Phân tích khái niệm và trả về cấu trúc JSON với các thành phần cần thiết cho video.
+        """
+        self.logger.info(f"Analyzing concept: {concept} in language: {language}")
+
+        prompt = self._build_prompt(concept, language)
+        response = self.model.generate_content(prompt)
+
+        try:
+            # Xử lý response để extract JSON
+            json_str = self._extract_json_from_response(response.text)
+            self.logger.info(f"Extracted JSON: {json_str}")
+            
+            parsed_response = json.loads(json_str)
+            return parsed_response
+
+        except Exception as e:
+            self.logger.error(f"Failed to analyze concept: {response.text}")
+            # Fallback response để pipeline có thể tiếp tục
+            return self._create_fallback_response(concept, language)
+    
+    def _extract_json_from_response(self, response_text: str) -> str:
+        """
+        Extract JSON từ response text của Gemini.
+        Gemini đôi khi trả về response với format không chuẩn.
+        """
+        # Loại bỏ các ký tự thừa và tìm JSON object
+        response_text = response_text.strip()
+        
+        # Tìm content trong ```json ``` blocks (nếu có)
+        json_block_match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
+        if json_block_match:
+            return json_block_match.group(1).strip()
+        
+        # Tìm content trong ``` ``` blocks (nếu có)
+        block_match = re.search(r'```\s*(.*?)\s*```', response_text, re.DOTALL)
+        if block_match:
+            return block_match.group(1).strip()
+        
+        # Tìm JSON object trực tiếp
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            return json_match.group(0)
+        
+        # Nếu không tìm thấy JSON, trả về response gốc (sẽ bị lỗi parse)
+        return response_text
+    
+    def _create_fallback_response(self, concept: str, language: str) -> Dict[str, Any]:
+        """Tạo fallback response khi không thể parse được response từ Gemini"""
+        if language.lower() == "vietnamese":
+            return {
+                "main_concept": concept,
+                "definition": f"Định nghĩa cơ bản về {concept}",
+                "key_points": [
+                    f"Khái niệm quan trọng về {concept}",
+                    f"Ứng dụng thực tế của {concept}",
+                    f"Ý nghĩa của {concept} trong STEM"
+                ],
+                "real_world_example": f"Ví dụ thực tế minh họa cho {concept}",
+                "visual_metaphor": f"Ẩn dụ trực quan cho {concept}",
+                "mathematical_notation": "Công thức toán học liên quan",
+                "level": "beginner"
+            }
+        else:
+            return {
+                "main_concept": concept,
+                "definition": f"Basic definition of {concept}",
+                "key_points": [
+                    f"Key concept about {concept}",
+                    f"Practical applications of {concept}",
+                    f"Significance of {concept} in STEM"
+                ],
+                "real_world_example": f"Real-world example illustrating {concept}",
+                "visual_metaphor": f"Visual metaphor for {concept}",
+                "mathematical_notation": "Related mathematical formula",
+                "level": "beginner"
+            }
+
+    def _build_prompt(self, concept: str, language: str) -> str:
+        """
+        Xây dựng prompt cho Gemini - cải thiện prompt để có response JSON ổn định hơn
+        """
+        if language.lower() == "vietnamese":
+            return f"""
+            Hãy phân tích khái niệm: "{concept}" và trả về kết quả dưới dạng JSON với cấu trúc sau:
+            
+            {{
+                "main_concept": "Tên chính xác của khái niệm",
+                "definition": "Định nghĩa ngắn gọn, dễ hiểu",
+                "key_points": [
+                    "Điểm quan trọng 1",
+                    "Điểm quan trọng 2", 
+                    "Điểm quan trọng 3"
+                ],
+                "real_world_example": "Ví dụ thực tế minh họa",
+                "visual_metaphor": "Ẩn dụ trực quan để minh họa khái niệm",
+                "mathematical_notation": "Ký hiệu toán học (nếu có)",
+                "level": "Cấp độ giải thích (beginner, intermediate, advanced)"
+            }}
+
+            YÊU CẦU QUAN TRỌNG:
+            1. Chỉ trả về JSON, không thêm bất kỳ nội dung giải thích nào khác
+            2. Đảm bảo JSON là valid và đúng cấu trúc
+            3. Sử dụng tiếng Việt rõ ràng, dễ hiểu
+            4. Các điểm quan trọng nên ngắn gọn nhưng đầy đủ thông tin
+            """
+        else:
+            return f"""
+            Analyze the concept: "{concept}" and return the result as a JSON with the following structure:
+            
+            {{
+                "main_concept": "Exact name of the concept",
+                "definition": "Brief, easy-to-understand definition", 
+                "key_points": [
+                    "Key point 1",
+                    "Key point 2",
+                    "Key point 3"
+                ],
+                "real_world_example": "Practical example illustrating the concept",
+                "visual_metaphor": "Visual metaphor to illustrate the concept",
+                "mathematical_notation": "Mathematical notation (if applicable)",
+                "level": "Explanation level (beginner, intermediate, advanced)"
+            }}
+
+            IMPORTANT REQUIREMENTS:
+            1. Return ONLY JSON, without any additional explanations
+            2. Ensure the JSON is valid and follows the exact structure
+            3. Use clear, understandable language
+            4. Key points should be concise but informative
+            """
