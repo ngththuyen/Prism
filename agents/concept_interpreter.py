@@ -32,7 +32,7 @@ You are the first step in a system that transforms STEM concepts into short, cle
 4) A Video Compositor (to assemble the final video).
 
 YOUR ROLE
-Analyze exactly the STEM concept requested by the user and produce a structured, animation-ready breakdown that is simple, concrete, and visually actionable.
+Analyze exactly the STEM concept requested by the user and produce a structured, animation-ready breakdown that is simple, concrete, and visually actionable in the specified target language ({target_language}).
 
 SCOPE & CLARITY RULES (Very Important)
 - Focus only on the concept asked. Do not introduce variants or closely related topics unless strictly required for understanding.
@@ -40,6 +40,7 @@ SCOPE & CLARITY RULES (Very Important)
 - Use examples that are easy to picture and compute (small numbers, common shapes, everyday contexts).
 - Each item must be showable on screen (diagrams, steps, equations, arrows, highlights, transformations).
 - Keep the sequence tight: from basics → build-up → main result → quick checks.
+- If target_language is "Vietnamese", return all text (main_concept, titles, descriptions, key_points) in Vietnamese with proper accents and natural language.
 
 ANALYSIS GUIDELINES
 
@@ -50,18 +51,21 @@ ANALYSIS GUIDELINES
    - Show clear dependencies (which parts must appear before others).
 
 2) Detailed Descriptions (per sub-concept)
-   - Title: 2–6 words, specific and visual.
+   - Title: 2–6 words, specific and visual, in {target_language}.
    - Description: 3–5 short sentences that explain:
      * What it is and why it matters for the main concept.
      * How it connects to the previous/next step.
      * How to show it on screen (shapes, axes, arrows, labels, motion).
      * The key “aha” insight in simple terms.
+     * Use {target_language} with natural phrasing and correct accents if Vietnamese.
+   - Dependencies: List of sub-concept IDs that must be shown first.
 
 3) Key Points (4–6 per sub-concept)
    - Concrete, testable facts or relationships (numbers, formulas, directions, conditions).
    - Each should imply a visual (e.g., “draw …”, “animate …”, “label …”, “arrow from … to …”).
    - Include the minimal math/notation needed (no extra symbols).
    - Capture the “click” moment (e.g., “doubling the radius quadruples the area”).
+   - Use {target_language} with proper grammar and accents if Vietnamese.
 
 4) Pedagogical Flow
    - Concrete → abstract; simple → complex.
@@ -90,68 +94,69 @@ Return ONLY valid JSON matching exactly this structure (no extra text, no backti
   ]
 }
 
-EXAMPLE (Easy & Clear) for “Area of a Circle”:
+EXAMPLE (Easy & Clear) for “Area of a Circle” in Vietnamese:
 {
-  "main_concept": "Area of a Circle",
+  "main_concept": "Diện tích hình tròn",
   "sub_concepts": [
     {
       "id": "circle_basics",
-      "title": "Circle and Radius",
-      "description": "Introduce a circle with center O and radius r. Show radius as a line from O to the edge. Explain that all points on the circle are exactly r units from O. This sets the single measurement we need for area.",
+      "title": "Hình tròn và Bán kính",
+      "description": "Giới thiệu hình tròn với tâm O và bán kính r. Hiển thị bán kính là đoạn thẳng từ O đến mép hình tròn. Giải thích rằng mọi điểm trên đường tròn cách tâm O đúng r đơn vị. Đây là phép đo duy nhất cần cho diện tích.",
       "dependencies": [],
       "key_points": [
-        "Draw a circle centered at O with radius r",
-        "Animate radius r as a segment from O to the boundary",
-        "Label O, r, and the circumference",
-        "Checkpoint: every boundary point is distance r from O"
+        "Vẽ hình tròn với tâm O và bán kính r",
+        "Tạo hiệu ứng cho bán kính r từ O đến mép",
+        "Gắn nhãn O, r và chu vi",
+        "Kiểm tra: mọi điểm trên đường tròn cách O đúng r"
       ]
     },
     {
       "id": "cut_and_unroll",
-      "title": "Slice and Rearrange",
-      "description": "Cut the circle into many equal wedges like pizza slices. Rearrange wedges alternating up and down to form a near-rectangle. This shows area by turning a curved shape into a simpler one.",
+      "title": "Cắt và Sắp xếp lại",
+      "description": "Cắt hình tròn thành nhiều múi bằng nhau như lát pizza. Sắp xếp lại các múi xen kẽ lên xuống để tạo thành hình gần giống chữ nhật. Điều này giúp hình dung diện tích bằng cách biến hình cong thành hình đơn giản hơn.",
       "dependencies": ["circle_basics"],
       "key_points": [
-        "Slice circle into N wedges (N large, e.g., 16)",
-        "Alternate wedges to form a zig-zag rectangle",
-        "Top/bottom approximate length equals half the circumference",
-        "Height equals radius r"
+        "Cắt hình tròn thành N múi (N lớn, ví dụ 16)",
+        "Sắp xếp xen kẽ các múi thành hình chữ nhật zíc zắc",
+        "Chiều dài trên/dưới xấp xỉ bằng nửa chu vi",
+        "Chiều cao bằng bán kính r"
       ]
     },
     {
       "id": "rectangle_link",
-      "title": "Rectangle Approximation",
-      "description": "Relate the rearranged shape to a rectangle with height r and width about half the circumference. As slices increase, the edges straighten. This makes the area easier to compute.",
+      "title": "Gần giống Hình chữ nhật",
+      "description": "Liên kết hình sắp xếp lại với hình chữ nhật có chiều cao r và chiều rộng khoảng nửa chu vi. Khi số múi tăng, các cạnh trở nên phẳng hơn. Điều này giúp tính diện tích dễ dàng hơn.",
       "dependencies": ["cut_and_unroll"],
       "key_points": [
-        "Circumference is 2πr (used as total ‘base’)",
-        "Half-circumference is πr (rectangle width)",
-        "Rectangle height is r",
-        "Approximate area becomes width × height = πr × r"
+        "Chu vi là 2πr (dùng làm chiều dài tổng)",
+        "Nửa chu vi là πr (chiều rộng hình chữ nhật)",
+        "Chiều cao hình chữ nhật là r",
+        "Diện tích xấp xỉ là chiều rộng × chiều cao = πr × r"
       ]
     },
     {
       "id": "final_formula",
-      "title": "Area Formula",
-      "description": "Take the limit as the number of slices grows. The rearranged shape becomes a true rectangle. This yields the exact area formula A = πr².",
+      "title": "Công thức Diện tích",
+      "description": "Lấy giới hạn khi số múi tăng lên. Hình sắp xếp lại trở thành hình chữ nhật thực sự. Điều này cho công thức diện tích chính xác A = πr².",
       "dependencies": ["rectangle_link"],
       "key_points": [
-        "Area = (πr) × r",
-        "Therefore A = πr²",
-        "Highlight r² to show area scales with radius squared",
-        "Checkpoint: doubling r makes area 4×"
+        "Diện tích = (πr) × r",
+        "Vậy A = πr²",
+        "Làm nổi bật r² để cho thấy diện tích tăng theo bình phương bán kính",
+        "Kiểm tra: gấp đôi r thì diện tích tăng gấp 4"
       ]
     }
   ]
 }
 """
 
-    def execute(self, concept: str) -> ConceptAnalysis:
+    def execute(self, concept: str, target_language: str = "English") -> ConceptAnalysis:
         """
         Analyze a STEM concept and return structured breakdown
 
         Args:
             concept: Raw text description of STEM concept (e.g., "Explain Bayes' Theorem")
+            target_language: Language for output text (English, Chinese, Spanish, Vietnamese)
 
         Returns:
             ConceptAnalysis object with structured breakdown
@@ -170,14 +175,17 @@ EXAMPLE (Easy & Clear) for “Area of a Circle”:
         # Sanitize input
         concept = self._sanitize_input(concept)
 
-        self.logger.info(f"Analyzing concept: {concept}")
+        self.logger.info(f"Analyzing concept: {concept} in {target_language}")
 
         # Call LLM with structured output
-        user_message = f"Analyze this STEM concept and provide a structured breakdown:\n\n{concept}"
+        user_message = f"Analyze this STEM concept and provide a structured breakdown in {target_language}:\n\n{concept}"
 
         try:
+            # Format system prompt with target language
+            system_prompt = self.SYSTEM_PROMPT.format(target_language=target_language)
+
             response_json = self._call_llm_structured(
-                system_prompt=self.SYSTEM_PROMPT,
+                system_prompt=system_prompt,
                 user_message=user_message,
                 temperature=0.5,
                 max_retries=3,

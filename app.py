@@ -36,11 +36,6 @@ UI_TEXT = {
         "language_label": "Narration Language",
         "generate_button": "Generate Animation",
         "video_label": "Generated Animation",
-        "examples": [
-            ["Explain Bubble Sort"],
-            ["Explain Bayes' Theorem"],
-            ["Explain Gradient Descent"]
-        ]
     },
     "Vietnamese": {
         "title": "Prism",
@@ -50,11 +45,6 @@ UI_TEXT = {
         "language_label": "Ngôn Ngữ Lời Dẫn",
         "generate_button": "Tạo Hoạt Hình",
         "video_label": "Hoạt Hình Đã Tạo",
-        "examples": [
-            ["Giải thích thuật toán Sắp xếp Nổi"],
-            ["Giải thích Định lý Bayes"],
-            ["Giải thích Gradient Descent"]
-        ]
     }
 }
 
@@ -85,7 +75,7 @@ def generate_animation(concept: str, language: str = "English", progress=gr.Prog
         video_path = result["video_result"]["output_path"]
         if Path(video_path).exists():
             logger.info(f"Video generated successfully: {video_path}")
-            return video_path
+            return str(video_path)  # Convert to string for Gradio
         else:
             logger.error(f"Video file not found: {video_path}")
             return None
@@ -93,8 +83,8 @@ def generate_animation(concept: str, language: str = "English", progress=gr.Prog
         logger.error(f"Pipeline failed: {result.get('error', 'Unknown error')}")
         return None
 
-# Use a static language for the UI (default to Vietnamese for testing)
-language = "Vietnamese"  # Change to "English" if preferred
+# Use Vietnamese UI by default
+language = "Vietnamese"
 texts = UI_TEXT.get(language, UI_TEXT["English"])
 
 with gr.Blocks(title=texts["title"]) as demo:
@@ -120,11 +110,6 @@ with gr.Blocks(title=texts["title"]) as demo:
             label=texts["video_label"],
             autoplay=True
         )
-    
-    gr.Examples(
-        examples=texts["examples"],
-        inputs=concept_input
-    )
     
     generate_btn.click(
         fn=generate_animation,

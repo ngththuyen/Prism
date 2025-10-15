@@ -17,7 +17,6 @@ from agents.manim_models import (
 )
 from rendering.manim_renderer import ManimRenderer
 
-
 class ManimAgent(BaseAgent):
     """
     Manim Agent: Transforms structured concept analysis into visual animations
@@ -136,305 +135,6 @@ Return ONLY valid JSON matching this exact structure. Ensure the JSON is complet
         }}
     ]
 }}
-
-**EXAMPLE** for Bayes' Theorem (consistent example across all scenes: medical test with 1% prevalence, 90% sensitivity, 95% specificity):
-{{
-    "scene_plans": [
-        {{
-            "id": "intro_context",
-            "title": "Bayes' Theorem: Context & Setup",
-            "description": "Introduce the medical testing example and define prior, sensitivity, and specificity.",
-            "sub_concept_id": "context_prior",
-            "actions": [
-                {{
-                    "action_type": "fade_in",
-                    "element_type": "text",
-                    "description": "Display title 'Bayes' Theorem'",
-                    "target": "title_text",
-                    "duration": 2.0,
-                    "parameters": {{"text": "Bayes' Theorem", "color": "#FFFFFF"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Narration pause after title",
-                    "target": "narration_pause_1",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "write",
-                    "element_type": "text",
-                    "description": "Present consistent example scenario",
-                    "target": "scenario_text",
-                    "duration": 5.0,
-                    "parameters": {{"text": "Medical test scenario: Disease prevalence 1%, Sensitivity 90%, Specificity 95%", "color": "#FFFFFF", "easing": "ease_in_out"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause for narrator to explain prevalence and test properties",
-                    "target": "narration_pause_2",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "write",
-                    "element_type": "math_equation",
-                    "description": "Define prior and test properties with color coding",
-                    "target": "definitions",
-                    "duration": 6.0,
-                    "parameters": {{"equation": "P(D)=0.01,\\ \\text{{sensitivity}}=0.90,\\ \\text{{specificity}}=0.95", "color": "#3B82F6", "easing": "ease_in_out"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Hold before moving on",
-                    "target": "narration_pause_3",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "write",
-                    "element_type": "diagram",
-                    "description": "Draw a population box to anchor the example that persists across scenes",
-                    "target": "population_box",
-                    "duration": 6.0,
-                    "parameters": {{"style": "outlined", "color": "#3B82F6", "label": "Population"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause to reinforce the setup",
-                    "target": "narration_pause_4",
-                    "duration": 3.0,
-                    "parameters": {{}}
-                }}
-            ],
-            "scene_dependencies": []
-        }},
-        {{
-            "id": "equation_intro",
-            "title": "Bayes' Formula",
-            "description": "Introduce Bayes' theorem and map terms to the example.",
-            "sub_concept_id": "bayes_equation",
-            "actions": [
-                {{
-                    "action_type": "write",
-                    "element_type": "math_equation",
-                    "description": "Write Bayes' theorem",
-                    "target": "bayes_equation",
-                    "duration": 4.0,
-                    "parameters": {{"equation": "P(D\\mid +)=\\frac{{P(+\\mid D)P(D)}}{{P(+)}}", "color": "#22C55E", "easing": "ease_in_out"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause to read equation",
-                    "target": "narration_pause_5",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "write",
-                    "element_type": "text",
-                    "description": "Label terms: prior, likelihood, evidence, posterior",
-                    "target": "term_labels",
-                    "duration": 5.0,
-                    "parameters": {{"text": "prior: P(D) (blue), likelihood: P(+|D) (green), evidence: P(+) (white), posterior: P(D|+) (red)", "color": "#FFFFFF"}}
-                }},
-                {{
-                    "action_type": "highlight",
-                    "element_type": "math_equation",
-                    "description": "Color-code terms on the formula",
-                    "target": "bayes_equation",
-                    "duration": 3.0,
-                    "parameters": {{"spans": [{{"term": "P(D)", "color": "#3B82F6"}}, {{"term": "P(+\\mid D)", "color": "#22C55E"}}, {{"term": "P(+)", "color": "#FFFFFF"}}, {{"term": "P(D\\mid +)", "color": "#EF4444"}}]}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Narration pause after mapping",
-                    "target": "narration_pause_6",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }}
-            ],
-            "scene_dependencies": ["intro_context"]
-        }},
-        {{
-            "id": "tree_diagram",
-            "title": "Likelihood Paths via Tree",
-            "description": "Show a probability tree aligned with the same example numbers.",
-            "sub_concept_id": "likelihood_evidence",
-            "actions": [
-                {{
-                    "action_type": "write",
-                    "element_type": "diagram",
-                    "description": "Draw tree branches for D and ¬D from population",
-                    "target": "probability_tree",
-                    "duration": 6.0,
-                    "parameters": {{"from": "population_box", "branches": [{{"label": "D (1%)", "color": "#3B82F6"}}, {{"label": "¬D (99%)", "color": "#3B82F6"}}]}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause for narrator to explain branches",
-                    "target": "narration_pause_7",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "write",
-                    "element_type": "diagram",
-                    "description": "Add test outcome branches with sensitivity/specificity",
-                    "target": "probability_tree_outcomes",
-                    "duration": 6.0,
-                    "parameters": {{"branches": [{{"from": "D", "label": "+ (90%)", "color": "#22C55E"}}, {{"from": "D", "label": "− (10%)", "color": "#22C55E"}}, {{"from": "¬D", "label": "+ (5%)", "color": "#22C55E"}}, {{"from": "¬D", "label": "− (95%)", "color": "#22C55E"}}]}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause after outcomes",
-                    "target": "narration_pause_8",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "highlight",
-                    "element_type": "diagram",
-                    "description": "Highlight the evidence paths that lead to '+'",
-                    "target": "probability_tree_outcomes",
-                    "duration": 3.0,
-                    "parameters": {{"paths": ["D→+", "¬D→+"], "color": "#EF4444"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Hold to emphasize 'evidence' P(+)",
-                    "target": "narration_pause_9",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }}
-            ],
-            "scene_dependencies": ["intro_context", "equation_intro"]
-        }},
-        {{
-            "id": "frequency_view",
-            "title": "Frequency Grid Intuition",
-            "description": "Use a 10,000-dot grid to make P(+) and P(D|+) concrete with the same numbers.",
-            "sub_concept_id": "evidence_frequency",
-            "actions": [
-                {{
-                    "action_type": "write",
-                    "element_type": "diagram",
-                    "description": "Create 10,000-dot grid inside population box (persists across scenes)",
-                    "target": "frequency_grid",
-                    "duration": 6.0,
-                    "parameters": {{"rows": 100, "cols": 100, "color": "#555555", "parent": "population_box"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause for narrator to explain frequency framing",
-                    "target": "narration_pause_10",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "highlight",
-                    "element_type": "diagram",
-                    "description": "Color 100 diseased dots (1%) in blue",
-                    "target": "frequency_grid_D",
-                    "duration": 4.0,
-                    "parameters": {{"count": 100, "color": "#3B82F6"}}
-                }},
-                {{
-                    "action_type": "highlight",
-                    "element_type": "diagram",
-                    "description": "Among D, highlight 90 true positives in green",
-                    "target": "frequency_grid_TP",
-                    "duration": 4.0,
-                    "parameters": {{"count": 90, "color": "#22C55E"}}
-                }},
-                {{
-                    "action_type": "highlight",
-                    "element_type": "diagram",
-                    "description": "Among ¬D, highlight 495 false positives (5% of 9,900) in green outline",
-                    "target": "frequency_grid_FP",
-                    "duration": 5.0,
-                    "parameters": {{"count": 495, "style": "outline", "color": "#22C55E"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Hold to let counts sink in",
-                    "target": "narration_pause_11",
-                    "duration": 3.0,
-                    "parameters": {{}}
-                }}
-            ],
-            "scene_dependencies": ["intro_context", "equation_intro", "tree_diagram"]
-        }},
-        {{
-            "id": "posterior_compute",
-            "title": "Compute P(D|+)",
-            "description": "Compute the posterior step-by-step using the same counts and Bayes' formula.",
-            "sub_concept_id": "posterior_computation",
-            "actions": [
-                {{
-                    "action_type": "write",
-                    "element_type": "math_equation",
-                    "description": "Substitute numeric values into Bayes' formula",
-                    "target": "substitution",
-                    "duration": 5.0,
-                    "parameters": {{"equation": "P(D\\mid +)=\\frac{{0.90\\times 0.01}}{{0.90\\times 0.01 + 0.05\\times 0.99}}", "color": "#FFFFFF"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause for narrator before simplifying",
-                    "target": "narration_pause_12",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "transform",
-                    "element_type": "math_equation",
-                    "description": "Simplify numerators and denominators",
-                    "target": "substitution",
-                    "duration": 4.0,
-                    "parameters": {{"to_equation": "P(D\\mid +)=\\frac{{0.009}}{{0.009+0.0495}}", "color": "#FFFFFF", "easing": "ease_in_out"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause for narrator to explain simplification",
-                    "target": "narration_pause_13",
-                    "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
-                    "action_type": "transform",
-                    "element_type": "math_equation",
-                    "description": "Compute final value",
-                    "target": "substitution",
-                    "duration": 4.0,
-                    "parameters": {{"to_equation": "P(D\\mid +)=0.154", "color": "#EF4444", "easing": "ease_in_out"}}
-                }},
-                {{
-                    "action_type": "wait",
-                    "element_type": "none",
-                    "description": "Pause to emphasize the result",
-                    "target": "narration_pause_14",
-                    "duration": 3.0,
-                    "parameters": {{}}
-                }}
-            ],
-            "scene_dependencies": ["equation_intro", "tree_diagram", "frequency_view"]
-        }}
-    ]
-}}
 """
 
     CODE_GENERATION_PROMPT = """You are a Manim Code Generation Agent.
@@ -456,7 +156,8 @@ Return ONLY valid JSON matching this exact structure. Ensure the JSON is complet
 7. Add Wait(duration) for wait actions.
 8. Ensure total animation time approximates the target duration.
 9. Do not include any code outside the class definition.
-10. Output ONLY the Manim code inside <manim> tags: <manim>code here</manim>
+10. Do not reference external image files (e.g., apple.png) unless explicitly provided in the project directory.
+11. Output ONLY the Manim code inside <manim> tags: <manim>code here</manim>
 
 Ensure the code is valid Python and runs without errors."""
 
@@ -504,7 +205,7 @@ Ensure the code is valid Python and runs without errors."""
                 success=bool(concatenated_path),
                 concept_id=concept_analysis.main_concept.lower().replace(" ", "_"),
                 scene_count=len(scene_plans),
-                silent_animation_path=concatenated_path,
+                silent_animation_path=str(concatenated_path) if concatenated_path else None,  # Convert Path to string
                 error_message="" if concatenated_path else "Concatenation failed",
                 scene_plan=scene_plans,
                 scene_codes=scene_codes,
@@ -536,7 +237,7 @@ Ensure the code is valid Python and runs without errors."""
     def _generate_scene_plans(self, concept_analysis: ConceptAnalysis) -> tuple[List[ScenePlan], Dict[str, Any]]:
         """Generate scene plans from concept analysis"""
 
-        user_message = f"Analyze this STEM concept and create scene plans:\n\n{json.dumps(concept_analysis.model_dump(), indent=2)}"
+        user_message = f"Analyze this STEM concept and create scene plans:\n\n{json.dumps(concept_analysis.model_dump(), indent=2, ensure_ascii=False)}"
 
         try:
             # Temporarily increase token limit for complex concepts
@@ -573,7 +274,11 @@ Ensure the code is valid Python and runs without errors."""
         """Save raw scene plans output to JSON file for debugging"""
 
         # Generate filename from concept
-        safe_name = "".join(c if c.isalnum() else "_" for c in concept_analysis.main_concept.lower())
+        try:
+            from unidecode import unidecode
+            safe_name = unidecode(concept_analysis.main_concept.lower())
+        except ImportError:
+            safe_name = "".join(c if c.isalnum() else "_" for c in concept_analysis.main_concept.lower())
         safe_name = safe_name[:50]  # Limit length
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{safe_name}_raw_scene_plans_{timestamp}.json"
@@ -581,8 +286,8 @@ Ensure the code is valid Python and runs without errors."""
         filepath = self.output_dir / "scene_plans" / filename
 
         # Save raw response
-        with open(filepath, 'w') as f:
-            json.dump(response_json, f, indent=2)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(response_json, f, indent=2, ensure_ascii=False)
 
         self.logger.info(f"Raw scene plans output saved to {filepath}")
         return filepath
@@ -603,7 +308,7 @@ Ensure the code is valid Python and runs without errors."""
                 self.logger.debug(f"Sanitized class name: {class_name}")
 
                 # Log the scene plan for debugging
-                scene_plan_json = json.dumps(scene_plan.model_dump(), indent=2)
+                scene_plan_json = json.dumps(scene_plan.model_dump(), indent=2, ensure_ascii=False)
                 self.logger.debug(f"Scene plan JSON length: {len(scene_plan_json)} characters")
                 self.logger.debug(f"First action parameters: {scene_plan.actions[0].parameters if scene_plan.actions else 'N/A'}")
 
@@ -757,7 +462,11 @@ Ensure the code is valid Python and runs without errors."""
     def _sanitize_class_name(self, scene_id: str) -> str:
         """Convert scene ID to valid Python class name"""
         # Remove invalid characters and convert to PascalCase
-        sanitized = re.sub(r'[^a-zA-Z0-9_]', '', scene_id)
+        try:
+            from unidecode import unidecode
+            sanitized = unidecode(scene_id)
+        except ImportError:
+            sanitized = re.sub(r'[^a-zA-Z0-9_]', '', scene_id)
         # Capitalize first letter and ensure it starts with letter or underscore
         if sanitized and sanitized[0].isdigit():
             sanitized = "Scene_" + sanitized
@@ -772,12 +481,17 @@ Ensure the code is valid Python and runs without errors."""
     def _save_scene_code(self, scene_id: str, class_name: str, manim_code: str, raw_output: str) -> Path:
         """Save generated Manim code to file"""
 
+        try:
+            from unidecode import unidecode
+            safe_scene_id = unidecode(scene_id)
+        except ImportError:
+            safe_scene_id = "".join(c if c.isalnum() else "_" for c in scene_id)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{scene_id}_{class_name}_{timestamp}.py"
+        filename = f"{safe_scene_id}_{class_name}_{timestamp}.py"
         filepath = self.output_dir / "scene_codes" / filename
 
         # Save both the clean code and raw output for debugging
-        with open(filepath, 'w') as f:
+        with open(filepath, 'w', encoding='utf-8') as f:
             f.write(f"# Generated Manim code for scene: {scene_id}\n")
             f.write(f"# Class: {class_name}\n")
             f.write(f"# Generated at: {timestamp}\n\n")
@@ -785,7 +499,7 @@ Ensure the code is valid Python and runs without errors."""
 
         # Also save raw LLM output
         raw_filepath = filepath.with_suffix('.raw.txt')
-        with open(raw_filepath, 'w') as f:
+        with open(raw_filepath, 'w', encoding='utf-8') as f:
             f.write(f"# Raw LLM output for scene: {scene_id}\n")
             f.write(f"# Class: {class_name}\n")
             f.write(f"# Generated at: {timestamp}\n\n")
@@ -802,7 +516,12 @@ Ensure the code is valid Python and runs without errors."""
             self.logger.info(f"Rendering scene: {scene_code.scene_name}")
 
             # Generate output filename
-            output_filename = f"{scene_code.scene_id}_{scene_code.scene_name}.mp4"
+            try:
+                from unidecode import unidecode
+                safe_scene_id = unidecode(scene_code.scene_id)
+            except ImportError:
+                safe_scene_id = "".join(c if c.isalnum() else "_" for c in scene_code.scene_id)
+            output_filename = f"{safe_scene_id}_{scene_code.scene_name}.mp4"
 
             try:
                 # Use renderer to create the video
@@ -816,7 +535,7 @@ Ensure the code is valid Python and runs without errors."""
                 result = RenderResult(
                     scene_id=scene_code.scene_id,
                     success=render_result.success,
-                    video_path=render_result.video_path,
+                    video_path=str(render_result.video_path) if render_result.video_path else None,  # Convert Path to string
                     error_message=render_result.error_message,
                     duration=render_result.duration,
                     resolution=render_result.resolution,
