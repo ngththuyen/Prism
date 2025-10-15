@@ -111,7 +111,7 @@ class ManimAgent(BaseAgent):
      - move/highlight: 3-5s
      - fade_in/out: 2-5s
      - wait (narration): 2-4s
-   - Prefer easing that reads smoothly (ease-in-out). Include `"parameters": {"easing": "ease_in_out"}` when relevant.
+   - For smooth animations, use appropriate rate functions in the generated Manim code.
 
 6. **Educational Flow**:
    - Start with context/overview
