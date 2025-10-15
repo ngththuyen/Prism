@@ -39,8 +39,8 @@ def generate_animation(concept: str, language: str = "English", progress=gr.Prog
     else:
         return None
 
-with gr.Blocks(title="STEMViz") as demo:
-    gr.Markdown("# STEMViz")
+with gr.Blocks(title="Prism") as demo:
+    gr.Markdown("# Prism")
     gr.Markdown("Transform STEM concepts into narrated educational animations")
     
     with gr.Row():

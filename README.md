@@ -1,8 +1,8 @@
-# STEMViz
+# Prism
 
 **AI-powered STEM concept visualizer that generates narrated educational animations using Manim, LLMs, and multimodal AI.**
 
-Transform complex STEM concepts into engaging, narrated video animations with just a text description. STEMViz uses a multi-agent pipeline to:
+Transform complex STEM concepts into engaging, narrated video animations with just a text description. Prism uses a multi-agent pipeline to:
 1. Analyze and break down concepts into sub-concepts
 2. Plan and generate Manim animation code
 3. Render individual scenes and concatenate them
@@ -340,7 +340,7 @@ uv pip install --force-reinstall manim
 ### Project Structure
 
 ```
-STEMViz/
+Prism/
 ├── agents/                  # AI agents
 │   ├── concept_interpreter.py   # Analyzes and decomposes STEM concepts
 │   ├── manim_agent.py            # Generates and renders Manim animations
@@ -389,12 +389,12 @@ This project is licensed under a non-commercial License - see the LICENSE file f
 
 ## Citation
 
-If you use STEMViz in your research or project, please cite:
+If you use Prism in your research or project, please cite:
 
 ```bibtex
-@software{stemviz2025,
+@software{prism2025,
   author = {Nguyen, Quan},
-  title = {STEMViz: AI-Powered STEM Concept Visualizer},
+  title = {Prism: AI-Powered STEM Concept Visualizer},
   year = {2025},
   url = {https://github.com/qnguyen3/STEMViz}
 }

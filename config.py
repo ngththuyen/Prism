@@ -7,16 +7,19 @@ from typing import Optional, Any
 
 class Settings(BaseSettings):
     # API Keys
-    openrouter_api_key: str
+    openrouter_api_key: Optional[str] = None
     google_api_key: str
     elevenlabs_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
+    # Prefer using Google GenAI (Gemini) for multimodal/script generation and reasoning
+    use_google_genai: bool = True
 
     # OpenRouter Configuration
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
-    # Model Selection (OpenRouter model IDs)
-    reasoning_model: str = "anthropic/claude-sonnet-4.5"
+    # Model Selection
+    # Default reasoning and multimodal models set to Google Gemini family
+    reasoning_model: str = "gemini-2.5-pro"
     multimodal_model: str = "gemini-2.5-pro"
 
     # TTS Provider Selection
@@ -86,14 +89,12 @@ class Settings(BaseSettings):
     manim_total_video_duration_target: float = 120.0  # seconds
     
     
-    ### NOTE: For Anthropic models (Sonnet 4/4.5, Opus 4/4.1), use only either reasoning tokens or reasoning effort, if both are used, reasoning effort will be prioritized
-    ### For OpenAI models (GPT-5, o3, o4-mini), only reasoning effort can trigger reasoning
-
-    # Reasoning setting (Anthropic Style)
+    ### NOTE: Reasoning tokens/effort settings exist for some providers (Anthropic-style or similar). When using Gemini, max_output_tokens may be used instead.
+    
+    # Reasoning setting (provider-specific tuning)
     interpreter_reasoning_tokens: Optional[int] = 2048
     animation_reasoning_tokens: Optional[int] = 4096
     
-    # Reasoning setting (Anthropic Style)
     interpreter_reasoning_effort: Optional[str] = "low"
     animation_reasoning_effort: Optional[str] = "medium"
 

@@ -26,12 +26,18 @@ class Pipeline:
         self._setup_logging()
 
         # Initialize agents
+        # Choose API key/source: prefer Google if configured
+        interpreter_api_key = settings.google_api_key if settings.use_google_genai and settings.google_api_key else settings.openrouter_api_key
+        interpreter_base_url = None if settings.use_google_genai else settings.openrouter_base_url
+
         self.concept_interpreter = ConceptInterpreterAgent(
-            api_key=settings.openrouter_api_key,
-            base_url=settings.openrouter_base_url,
+            api_key=interpreter_api_key,
+            base_url=interpreter_base_url or settings.openrouter_base_url,
             model=settings.reasoning_model,
             reasoning_tokens=settings.interpreter_reasoning_tokens,
-            reasoning_effort=settings.interpreter_reasoning_effort
+            reasoning_effort=settings.interpreter_reasoning_effort,
+            use_google=settings.use_google_genai,
+            google_api_key=settings.google_api_key
         )
 
         # Initialize Manim Agent
@@ -47,10 +53,15 @@ class Pipeline:
             render_timeout=settings.manim_render_timeout
         )
 
+        manim_api_key = settings.google_api_key if settings.use_google_genai and settings.google_api_key else settings.openrouter_api_key
+        manim_base_url = None if settings.use_google_genai else settings.openrouter_base_url
+
         self.manim_agent = ManimAgent(
-            api_key=settings.openrouter_api_key,
-            base_url=settings.openrouter_base_url,
+            api_key=manim_api_key,
+            base_url=manim_base_url or settings.openrouter_base_url,
             model=settings.reasoning_model,
+            use_google=settings.use_google_genai,
+            google_api_key=settings.google_api_key,
             output_dir=settings.output_dir,
             config=animation_config,
             reasoning_tokens=settings.animation_reasoning_tokens,

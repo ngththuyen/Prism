@@ -6,11 +6,19 @@ import json
 import re
 from typing import Optional, Dict, Any
 
+# Optional Google GenAI SDK import (used for Gemini models)
+try:
+    from google import genai
+    _HAS_GOOGLE_GENAI = True
+except Exception:
+    genai = None
+    _HAS_GOOGLE_GENAI = False
+
 
 class BaseAgent(ABC):
     """Base class for all AI agents using OpenRouter"""
 
-    def __init__(self, api_key: str, base_url: str, model: str, reasoning_tokens: Optional[float] = None, reasoning_effort: Optional[str] = None):
+    def __init__(self, api_key: str, base_url: str, model: str, reasoning_tokens: Optional[float] = None, reasoning_effort: Optional[str] = None, use_google: Optional[bool] = None, google_api_key: Optional[str] = None):
         self.api_key = api_key
         self.base_url = base_url.rstrip('/')
         self.model = model
@@ -20,6 +28,21 @@ class BaseAgent(ABC):
         self.total_tokens = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
+
+        # Google GenAI integration
+        # use_google controls whether to attempt to use Google Gemini via SDK
+        self.use_google = bool(use_google) and _HAS_GOOGLE_GENAI
+        self.google_api_key = google_api_key
+        self.google_client = None
+        if self.use_google:
+            try:
+                # Initialize Google GenAI client with provided API key
+                self.google_client = genai.Client(api_key=self.google_api_key or self.api_key)
+                self.logger.info("Google GenAI client initialized for Gemini models")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize Google GenAI client: {e}. Falling back to HTTP OpenRouter calls")
+                self.google_client = None
+                self.use_google = False
 
     def _call_llm(
         self,
@@ -31,6 +54,53 @@ class BaseAgent(ABC):
     ) -> str:
         """Call LLM with retry logic and error handling using HTTPS API"""
 
+        # If Google GenAI is enabled and client available, prefer it (Gemini)
+        if self.use_google and self.google_client:
+            for attempt in range(max_retries):
+                try:
+                    # Concatenate system + user into a prompt; SDK accepts text input
+                    prompt = system_prompt.strip() + "\n\n" + user_message.strip()
+
+                    # Use the 'generate' method to request text completion
+                    response = self.google_client.generate(
+                        model=self.model,
+                        temperature=temperature,
+                        max_output_tokens=int(self.reasoning_tokens) if self.reasoning_tokens else None,
+                        input=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}]
+                    )
+
+                    # SDK returns a list of candidates; join if needed
+                    candidates = getattr(response, 'candidates', None)
+                    if candidates and len(candidates) > 0:
+                        content = candidates[0].get('content') if isinstance(candidates[0], dict) else getattr(candidates[0], 'content', None)
+                    else:
+                        # Fallback to text field
+                        content = getattr(response, 'text', None) or str(response)
+
+                    # Attempt to extract token usage if present
+                    try:
+                        usage = getattr(response, 'token_usage', None) or (response.get('usage') if isinstance(response, dict) else None)
+                        if usage:
+                            self.prompt_tokens += usage.get('input_tokens', 0) or usage.get('prompt_tokens', 0)
+                            self.completion_tokens += usage.get('output_tokens', 0) or usage.get('completion_tokens', 0)
+                            self.total_tokens += usage.get('total', 0) or usage.get('total_tokens', 0)
+                    except Exception:
+                        pass
+
+                    self.logger.info(f"Google GenAI LLM call successful (attempt {attempt + 1})")
+                    return content
+
+                except Exception as e:
+                    self.logger.warning(f"Google GenAI call failed (attempt {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(2 ** attempt)
+                        continue
+                    else:
+                        # Fall back to OpenRouter HTTP method after repeated failures
+                        self.logger.warning("Falling back to OpenRouter HTTP calls after Google GenAI failures")
+                        break
+
+        # Fallback / default: existing OpenRouter-compatible HTTP API path
         for attempt in range(max_retries):
             try:
                 messages = [
