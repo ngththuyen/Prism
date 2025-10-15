@@ -34,7 +34,13 @@ class BaseAgent(ABC):
         self.use_google = bool(use_google) and _HAS_GOOGLE_GENAI
         self.google_api_key = google_api_key
         self.google_client = None
+
+        # Validate configuration
         if self.use_google:
+            if not self.google_api_key:
+                raise ValueError("Google API key is required when use_google=True")
+            if not _HAS_GOOGLE_GENAI:
+                raise ImportError("google-genai package is required. Install with: pip install google-genai")
             try:
                 # Initialize Google GenAI client with provided API key
                 self.google_client = genai.Client(api_key=self.google_api_key or self.api_key)
@@ -96,11 +102,9 @@ class BaseAgent(ABC):
                         time.sleep(2 ** attempt)
                         continue
                     else:
-                        # Fall back to OpenRouter HTTP method after repeated failures
-                        self.logger.warning("Falling back to OpenRouter HTTP calls after Google GenAI failures")
-                        break
+                        raise Exception(f"Google GenAI calls failed after {max_retries} attempts. Last error: {e}")
 
-        # Fallback / default: existing OpenRouter-compatible HTTP API path
+        # Only use OpenRouter if explicitly configured (use_google=False) and API key provided
         for attempt in range(max_retries):
             try:
                 messages = [
