@@ -4,7 +4,14 @@ import re
 import logging
 from dataclasses import dataclass
 import google.generativeai as genai
-from ..config import Config
+
+# Flexible import for Config
+try:
+    # For direct execution
+    from config import Config
+except ImportError:
+    # For module import  
+    from ..config import Config
 
 @dataclass
 class SubConcept:
@@ -64,7 +71,8 @@ class ConceptInterpreterAgent:
 
         except Exception as e:
             self.logger.error(f"Failed to analyze concept: {e}")
-            self.logger.error(f"Raw response: {getattr(response, 'text', 'No response')}")
+            response_text = getattr(response, 'text', 'No response') if 'response' in locals() else 'No response'
+            self.logger.error(f"Raw response: {response_text}")
             
             # Fallback response to keep pipeline running
             return self._create_fallback_response(concept, language)
