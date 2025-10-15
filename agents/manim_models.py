@@ -7,14 +7,15 @@ import re
 class SceneAction(BaseModel):
     """
     Represents a single visual action within a scene.
-    The 'parameters' field can contain any keys, including 'from' and 'to', for flexible animation actions.
+    WARNING: Do not add any top-level field named 'from' or 'to'.
+    The 'parameters' field is a free-form dict and can contain any keys, including 'from' and 'to'.
     """
     action_type: str
     element_type: str
     description: str
     target: str
     duration: float
-    parameters: Dict[str, Any] = Field(default_factory=dict, description="Flexible parameters for the action, can include 'from', 'to', etc.")
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="Flexible parameters for the action, can include any keys, including 'from', 'to', etc.")
 
 
 class ScenePlan(BaseModel):
@@ -88,7 +89,7 @@ class AnimationConfig(BaseModel):
 class SceneTransition(BaseModel):
     """
     Defines how scenes transition to each other.
-    Use 'source_scene' and 'target_scene' instead of 'from'/'to' to avoid Python keyword conflicts.
+    WARNING: Do not use 'from' or 'to' as top-level fields. Use 'source_scene' and 'target_scene' instead.
     """
     source_scene: str
     target_scene: str
