@@ -6,7 +6,6 @@ import json
 import re
 from typing import Optional, Dict, Any
 
-# Import Google's Generative AI library
 try:
     import google.generativeai as genai
     _HAS_GOOGLE_GENAI = True
@@ -28,12 +27,9 @@ class BaseAgent(ABC):
         self.total_tokens = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
-
-        # Google GenAI integration
         self.use_google = bool(use_google) and _HAS_GOOGLE_GENAI
         self.google_api_key = google_api_key
 
-        # Validate configuration
         if self.use_google:
             if not self.google_api_key:
                 raise ValueError("Google API key is required when use_google=True")
@@ -55,55 +51,40 @@ class BaseAgent(ABC):
         json_mode: bool = False,
     ) -> str:
         """Call LLM with retry logic and error handling"""
-
-        # If Google GenAI is enabled, use it
         if self.use_google:
             for attempt in range(max_retries):
                 try:
-                    # Initialize the model with the system prompt
                     model = genai.GenerativeModel(
                         model_name=self.model,
                         system_instruction=system_prompt
                     )
-                    
-                    # Configure generation parameters
                     generation_config = genai.types.GenerationConfig(
                         temperature=temperature,
                         max_output_tokens=int(self.reasoning_tokens) if self.reasoning_tokens else 8192,
                     )
-                    
-                    # Add JSON instruction if json_mode is True
                     actual_user_message = user_message
                     if json_mode:
-                        actual_user_message = f"{user_message}\n\nCRITICAL: You MUST return ONLY valid JSON with no markdown formatting, no code blocks (no ```json or ```), no extra text before or after the JSON object."
+                        actual_user_message = f"{user_message}\n\nCRITICAL: Return ONLY valid JSON with no markdown, no code blocks (```json or ```), no extra text. Ensure proper JSON structure with correct braces and brackets."
                         generation_config.response_mime_type = "application/json"
-
-                    # Generate content from the user message
+                    self.logger.debug(f"Sending user message to Gemini: {actual_user_message[:500]}...")
                     response = model.generate_content(
                         actual_user_message,
                         generation_config=generation_config
                     )
-
-                    # Check if response is valid
                     if not response or not response.text:
                         raise Exception(f"Empty response from Gemini. Finish reason: {response.candidates[0].finish_reason if response.candidates else 'unknown'}")
-
-                    # Extract text content from response
                     content = response.text
-                    
-                    # Clean and validate JSON if json_mode is True
+                    self.logger.debug(f"Raw Gemini response (attempt {attempt + 1}): {content[:1000]}")
                     if json_mode:
-                        self.logger.debug(f"Raw content before sanitization: {content[:500]}")
-                        content = self._sanitize_json_output(content)
-                        self.logger.debug(f"Sanitized content: {content[:500]}")
+                        sanitized_content = self._sanitize_json_output(content)
+                        self.logger.debug(f"Sanitized Gemini response: {sanitized_content[:1000]}")
                         try:
-                            json.loads(content)
+                            json.loads(sanitized_content)
                         except json.JSONDecodeError as e:
                             self.logger.error(f"JSON validation failed: {e}")
-                            self.logger.error(f"Problematic content: {content[:500]}")
+                            self.logger.error(f"Problematic content: {sanitized_content[:500]}")
                             raise Exception(f"Invalid JSON from Gemini: {e}")
-                    
-                    # Rough token tracking (approximate)
+                        content = sanitized_content
                     try:
                         prompt_tokens = len(system_prompt.split()) + len(user_message.split())
                         completion_tokens = len(content.split())
@@ -112,78 +93,64 @@ class BaseAgent(ABC):
                         self.total_tokens += prompt_tokens + completion_tokens
                     except Exception as e:
                         self.logger.warning(f"Failed to track tokens: {e}")
-
                     self.logger.info(f"Google GenAI LLM call successful (attempt {attempt + 1})")
                     return content
-
                 except Exception as e:
                     self.logger.warning(f"Google GenAI call failed (attempt {attempt + 1}/{max_retries}): {e}")
                     if attempt < max_retries - 1:
                         time.sleep(2 ** attempt)
                         continue
-                    else:
-                        raise Exception(f"Google GenAI calls failed after {max_retries} attempts. Last error: {e}")
-
-        # OpenRouter fallback
+                    raise Exception(f"Google GenAI calls failed after {max_retries} attempts: {e}")
+        
         for attempt in range(max_retries):
             try:
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
                 ]
-
                 headers = {
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json"
                 }
-
                 payload = {
                     "model": self.model,
                     "messages": messages,
                     "temperature": temperature,
                 }
-
                 if self.reasoning_tokens is not None:
                     payload["reasoning"] = {"max_tokens": int(self.reasoning_tokens), "enabled": True}
-                    
                 if self.reasoning_effort is not None:
                     payload["reasoning"] = {"effort": self.reasoning_effort, "enabled": True}
-
                 if json_mode:
                     payload["response_format"] = {"type": "json_object"}
-
                 url = f"{self.base_url}/chat/completions"
-                
+                self.logger.debug(f"Sending request to OpenRouter: {json.dumps(payload, ensure_ascii=False)[:500]}...")
                 response = requests.post(
                     url,
                     headers=headers,
                     json=payload,
                     timeout=120
                 )
-                
                 response.raise_for_status()
                 response_data = response.json()
-
                 if "usage" in response_data:
                     self.prompt_tokens += response_data["usage"].get("prompt_tokens", 0)
                     self.completion_tokens += response_data["usage"].get("completion_tokens", 0)
                     self.total_tokens += response_data["usage"].get("total_tokens", 0)
-
                 content = response_data["choices"][0]["message"]["content"]
+                self.logger.debug(f"Raw OpenRouter response (attempt {attempt + 1}): {content[:1000]}")
                 if json_mode:
-                    self.logger.debug(f"Raw content before sanitization: {content[:500]}")
-                    content = self._sanitize_json_output(content)
-                    self.logger.debug(f"Sanitized content: {content[:500]}")
+                    sanitized_content = self._sanitize_json_output(content)
+                    self.logger.debug(f"Sanitized OpenRouter response: {sanitized_content[:1000]}")
                     try:
-                        json.loads(content)
+                        json.loads(sanitized_content)
                     except json.JSONDecodeError as e:
                         self.logger.error(f"JSON validation failed: {e}")
-                        self.logger.error(f"Problematic content: {content[:500]}")
+                        self.logger.error(f"Problematic content: {sanitized_content[:500]}")
                         raise Exception(f"Invalid JSON from OpenRouter: {e}")
-
+                    content = sanitized_content
                 self.logger.info(f"LLM call successful (attempt {attempt + 1})")
                 return content
-
             except Exception as e:
                 self.logger.warning(f"LLM call failed (attempt {attempt + 1}/{max_retries}): {e}")
                 if attempt < max_retries - 1:
@@ -200,24 +167,17 @@ class BaseAgent(ABC):
         max_retries: int = 3,
     ) -> Dict[Any, Any]:
         """Call LLM and return parsed JSON response with enhanced error handling"""
-
         for attempt in range(max_retries):
             try:
                 response = self._call_llm(
                     system_prompt=system_prompt,
                     user_message=user_message,
                     temperature=temperature,
-                    max_retries=max_retries,
+                    max_retries=1,  # Inner retries handled here
                     json_mode=True,
                 )
-
-                # Sanitize JSON output before parsing
                 sanitized_response = self._sanitize_json_output(response)
-                
-                # Additional cleaning for common issues
                 sanitized_response = sanitized_response.strip()
-                
-                # Try to fix incomplete JSON
                 if not sanitized_response.endswith('}') and not sanitized_response.endswith(']'):
                     self.logger.warning("JSON appears incomplete, attempting to complete it")
                     open_braces = sanitized_response.count('{')
@@ -226,16 +186,15 @@ class BaseAgent(ABC):
                     close_brackets = sanitized_response.count(']')
                     sanitized_response += '}' * (open_braces - close_braces)
                     sanitized_response += ']' * (open_brackets - close_brackets)
-                
-                # Attempt to parse
+                self.logger.debug(f"Attempting to parse JSON (attempt {attempt + 1}): {sanitized_response[:1000]}")
                 try:
                     parsed = json.loads(sanitized_response)
+                    self.logger.info(f"JSON parsed successfully on attempt {attempt + 1}")
                     return parsed
                 except json.JSONDecodeError as e:
                     self.logger.error(f"JSON parse error on attempt {attempt + 1}: {e}")
                     self.logger.error(f"Problematic JSON (first 500 chars): {sanitized_response[:500]}")
                     self.logger.error(f"Problematic JSON (last 200 chars): {sanitized_response[-200:]}")
-                    
                     if attempt < max_retries - 1:
                         self.logger.info(f"Retrying with increased max_output_tokens...")
                         if self.use_google and self.reasoning_tokens:
@@ -243,18 +202,13 @@ class BaseAgent(ABC):
                             self.reasoning_tokens = int(self.reasoning_tokens * 1.5)
                             self.logger.info(f"Increased tokens from {old_tokens} to {self.reasoning_tokens}")
                         continue
-                    else:
-                        raise ValueError(f"Invalid JSON response from LLM after {max_retries} attempts: {str(e)[:200]}")
-            
+                    raise ValueError(f"Invalid JSON response from LLM after {max_retries} attempts: {str(e)[:200]}")
             except Exception as e:
                 if attempt < max_retries - 1:
-                    self.logger.warning(f"Structured call failed (attempt {attempt + 1}), retrying...")
+                    self.logger.warning(f"Structured call failed (attempt {attempt + 1}): {str(e)[:200]}")
                     time.sleep(2 ** attempt)
                     continue
-                else:
-                    raise
-
-        raise ValueError(f"Failed to get valid JSON response after {max_retries} attempts")
+                raise ValueError(f"Failed to get valid JSON response after {max_retries} attempts: {str(e)[:200]}")
 
     def get_token_usage(self) -> Dict[str, int]:
         """Return token usage statistics"""
@@ -266,25 +220,17 @@ class BaseAgent(ABC):
 
     def _sanitize_json_output(self, text: str) -> str:
         """Remove ```json ``` code blocks and other markdown artifacts from LLM output"""
-        # Remove ```json``` and ``` blocks
         sanitized = re.sub(r'```json\s*', '', text, flags=re.IGNORECASE)
         sanitized = re.sub(r'```\s*$', '', sanitized, flags=re.MULTILINE)
         sanitized = re.sub(r'^```\s*', '', sanitized, flags=re.MULTILINE)
-        
-        # Remove comments or extra text
         sanitized = re.sub(r'//.*?\n|/\*.*?\*/', '', sanitized, flags=re.DOTALL)
-        
-        # Remove leading/trailing whitespace
         sanitized = sanitized.strip()
-        
-        # Remove text before first { or [
         first_brace = sanitized.find('{')
         first_bracket = sanitized.find('[')
         if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
             sanitized = sanitized[first_brace:]
         elif first_bracket != -1:
             sanitized = sanitized[first_bracket:]
-        
         return sanitized
 
     @abstractmethod
