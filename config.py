@@ -19,8 +19,8 @@ class Settings(BaseSettings):
 
     # Model Selection
     # Using Google's Gemini models
-    reasoning_model: str = "gemini-pro"          # For text/chat (fixed in BaseAgent)
-    multimodal_model: str = "gemini-pro-vision"  # For image/video analysis
+    reasoning_model: str = "gemini-1.5-flash"    # For text/chat
+    multimodal_model: str = "gemini-1.5-flash" # For image/video analysis, consider "gemini-pro-vision" or "gemini-1.5-pro"
 
     # TTS Provider Selection
     tts_provider: str = "elevenlabs"  # "elevenlabs", "openai"

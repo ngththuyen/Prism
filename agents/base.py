@@ -45,8 +45,8 @@ class BaseAgent(ABC):
                 genai.configure(api_key=self.google_api_key or self.api_key)
                 self.logger.info("Google GenerativeAI configured successfully")
             except Exception as e:
-                self.logger.warning(f"Failed to initialize Google GenAI client: {e}. Falling back to HTTP OpenRouter calls")
-                self.google_client = None
+                self.logger.warning(f"Failed to configure Google GenAI: {e}. Falling back to HTTP OpenRouter calls")
+                self.use_google = False
                 self.use_google = False
 
     def _call_llm(
@@ -63,31 +63,27 @@ class BaseAgent(ABC):
         if self.use_google:
             for attempt in range(max_retries):
                 try:
+                    # Initialize the model with the system prompt
+                    model = genai.GenerativeModel(
+                        model_name=self.model,
+                        system_instruction=system_prompt
+                    )
+                    
                     # Configure generation parameters
-                    generation_config = {
-                        "temperature": temperature,
-                        "top_p": 1,
-                        "top_k": 1,
-                        "max_output_tokens": int(self.reasoning_tokens) if self.reasoning_tokens else 2048,
-                    }
+                    generation_config = genai.types.GenerationConfig(
+                        temperature=temperature,
+                        max_output_tokens=int(self.reasoning_tokens) if self.reasoning_tokens else 2048,
+                    )
 
-                    # Create chat with system prompt
-                    chat = genai.chat(
-                        model='gemini-pro',
-                        messages=[
-                            {"role": "user", "parts": [system_prompt]},
-                            {"role": "model", "parts": ["Understood, I will follow these instructions."]},
-                            {"role": "user", "parts": [user_message]}
-                        ],
+                    # Generate content from the user message
+                    response = model.generate_content(
+                        user_message,
                         generation_config=generation_config
                     )
 
-                    # Get response from the latest message
-                    response = chat.last
-
-                    # Extract text content from response parts
-                    content = response.text if hasattr(response, 'text') else str(response)
-
+                    # Extract text content from response
+                    content = response.text
+                    
                     # Rough token tracking (approximate)
                     try:
                         prompt_tokens = len(system_prompt.split()) + len(user_message.split())
@@ -105,11 +101,6 @@ class BaseAgent(ABC):
                     self.logger.warning(f"Google GenAI call failed (attempt {attempt + 1}/{max_retries}): {e}")
                     if attempt < max_retries - 1:
                         time.sleep(2 ** attempt)
-                        # Reconfigure API before retry
-                        try:
-                            genai.configure(api_key=self.google_api_key or self.api_key)
-                        except:
-                            pass
                         continue
                     else:
                         raise Exception(f"Google GenAI calls failed after {max_retries} attempts. Last error: {e}")
