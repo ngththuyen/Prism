@@ -5,6 +5,13 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable
 from datetime import datetime
+import sys
+
+try:
+    from unidecode import unidecode
+except ImportError:
+    unidecode = None
+    print("Warning: 'unidecode' not installed. Vietnamese file names may cause issues. Install with: pip install unidecode")
 
 from config import settings
 from agents.concept_interpreter import ConceptInterpreterAgent, ConceptAnalysis
@@ -19,6 +26,7 @@ class Pipeline:
     """
     Main orchestration pipeline for STEM animation generation
     Phase 4: Concept interpretation + animation generation + script generation + audio synthesis + video composition
+    Supports Vietnamese text in logs and file outputs
     """
     
     def __init__(self):
@@ -99,16 +107,20 @@ class Pipeline:
             timeout=settings.video_composition_timeout
         )
 
-        self.logger.info("Pipeline initialized with Phase 4 capabilities")
+        self.logger.info("Pipeline initialized with Phase 4 capabilities and Vietnamese support")
         
     def _setup_logging(self):
-        """Configure logging for pipeline"""
+        """Configure logging for pipeline with UTF-8 encoding"""
+        # Ensure console supports UTF-8
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[
-                logging.FileHandler(self.config.output_dir / 'pipeline.log'),
-                logging.StreamHandler()
+                logging.FileHandler(self.config.output_dir / 'pipeline.log', encoding='utf-8'),
+                logging.StreamHandler(sys.stdout)
             ]
         )
         self.logger = logging.getLogger("Pipeline")
@@ -123,7 +135,7 @@ class Pipeline:
         Execute the full pipeline (Phase 4: concept interpretation + animation generation + script generation + audio synthesis + video composition)
 
         Args:
-            concept: STEM concept to process
+            concept: STEM concept to process (supports Vietnamese)
             progress_callback: Optional callback for progress updates (message, percentage)
             target_language: Target language for narration (English, Chinese, Spanish, Vietnamese)
 
@@ -137,44 +149,44 @@ class Pipeline:
         try:
             # Step 1: Concept Interpretation
             if progress_callback:
-                progress_callback("Analyzing concept...", 0.1)
+                progress_callback("Analyzing concept..." if target_language != "Vietnamese" else "Phân tích khái niệm...", 0.1)
 
             analysis = self._execute_concept_interpretation(concept)
 
             if progress_callback:
-                progress_callback("Concept analysis complete", 0.3)
+                progress_callback("Concept analysis complete" if target_language != "Vietnamese" else "Phân tích khái niệm hoàn tất", 0.3)
 
             # Save analysis to file
             analysis_path = self._save_analysis(analysis, concept)
 
             # Step 2: Animation Generation (Phase 2-3)
             if progress_callback:
-                progress_callback("Planning animation scenes...", 0.4)
+                progress_callback("Planning animation scenes..." if target_language != "Vietnamese" else "Lập kế hoạch cảnh hoạt hình...", 0.4)
 
             animation_result = self._execute_manim_generation(analysis)
 
             if progress_callback:
-                progress_callback("Animation generation complete", 0.6)
+                progress_callback("Animation generation complete" if target_language != "Vietnamese" else "Tạo hoạt hình hoàn tất", 0.6)
 
             # Step 3: Script Generation (Phase 3)
             if animation_result.success and animation_result.silent_animation_path:
                 if progress_callback:
-                    progress_callback("Generating narration script...", 0.7)
+                    progress_callback("Generating narration script..." if target_language != "Vietnamese" else "Tạo kịch bản lời dẫn...", 0.7)
 
                 script_result = self._execute_script_generation(animation_result.silent_animation_path, target_language)
 
                 if progress_callback:
                     if script_result.success:
-                        progress_callback("Script generation complete", 0.8)
+                        progress_callback("Script generation complete" if target_language != "Vietnamese" else "Tạo kịch bản hoàn tất", 0.8)
                     else:
-                        progress_callback("Script generation failed", 0.8)
+                        progress_callback("Script generation failed" if target_language != "Vietnamese" else "Tạo kịch bản thất bại", 0.8)
             else:
                 script_result = None
 
             # Step 4: Audio Synthesis (Phase 3)
             if script_result and script_result.success:
                 if progress_callback:
-                    progress_callback("Synthesizing audio narration...", 0.85)
+                    progress_callback("Synthesizing audio narration..." if target_language != "Vietnamese" else "Tổng hợp âm thanh lời dẫn...", 0.85)
 
                 audio_result = self._execute_audio_synthesis(
                     script_result.script_path,
@@ -183,9 +195,9 @@ class Pipeline:
 
                 if progress_callback:
                     if audio_result.success:
-                        progress_callback("Audio synthesis complete", 0.9)
+                        progress_callback("Audio synthesis complete" if target_language != "Vietnamese" else "Tổng hợp âm thanh hoàn tất", 0.9)
                     else:
-                        progress_callback("Audio synthesis failed", 0.9)
+                        progress_callback("Audio synthesis failed" if target_language != "Vietnamese" else "Tổng hợp âm thanh thất bại", 0.9)
             else:
                 audio_result = None
 
@@ -195,7 +207,7 @@ class Pipeline:
                 script_result and script_result.success):
 
                 if progress_callback:
-                    progress_callback("Composing final video...", 0.95)
+                    progress_callback("Composing final video..." if target_language != "Vietnamese" else "Tạo video cuối cùng...", 0.95)
 
                 video_result = self._execute_video_composition(
                     animation_result.silent_animation_path,
@@ -205,14 +217,14 @@ class Pipeline:
 
                 if progress_callback:
                     if video_result.success:
-                        progress_callback("Video composition complete", 1.0)
+                        progress_callback("Video composition complete" if target_language != "Vietnamese" else "Tạo video hoàn tất", 1.0)
                     else:
-                        progress_callback("Video composition failed", 1.0)
+                        progress_callback("Video composition failed" if target_language != "Vietnamese" else "Tạo video thất bại", 1.0)
                 
                 # Step 6: Cleanup temporary files after successful composition
                 if video_result and video_result.success:
                     if progress_callback:
-                        progress_callback("Cleaning up temporary files...", 1.0)
+                        progress_callback("Cleaning up temporary files..." if target_language != "Vietnamese" else "Dọn dẹp tệp tạm thời...", 1.0)
                     self._cleanup_temp_files(animation_result, audio_result)
             else:
                 video_result = None
@@ -309,18 +321,18 @@ class Pipeline:
         return self.concept_interpreter.execute(concept)
     
     def _save_analysis(self, analysis: ConceptAnalysis, original_concept: str) -> Path:
-        """Save concept analysis to JSON file"""
+        """Save concept analysis to JSON file with sanitized file name"""
         
-        # Generate filename from concept
-        safe_name = "".join(c if c.isalnum() else "_" for c in original_concept.lower())
+        # Generate filename from concept, transliterating Vietnamese characters
+        safe_name = unidecode(original_concept.lower()) if unidecode else "".join(c if c.isalnum() else "_" for c in original_concept.lower())
         safe_name = safe_name[:50]  # Limit length
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{safe_name}_{timestamp}.json"
         
         filepath = self.config.analyses_dir / filename
         
-        with open(filepath, 'w') as f:
-            json.dump(analysis.model_dump(), f, indent=2)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(analysis.model_dump(), f, indent=2, ensure_ascii=False)
         
         self.logger.info(f"Analysis saved to {filepath}")
         return filepath
@@ -385,6 +397,7 @@ class Pipeline:
 
         # Generate output filename based on input files
         animation_name = Path(animation_path).stem
+        animation_name = unidecode(animation_name) if unidecode else "".join(c if c.isalnum() else "_" for c in animation_name)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"{animation_name}_final_{timestamp}.mp4"
 
