@@ -18,9 +18,9 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     # Model Selection
-    # Default reasoning and multimodal models set to Google Gemini family
-    reasoning_model: str = "gemini-2.5-pro"
-    multimodal_model: str = "gemini-2.5-pro"
+    # Using Google's Gemini models
+    reasoning_model: str = "gemini-pro"          # For text/chat (fixed in BaseAgent)
+    multimodal_model: str = "gemini-pro-vision"  # For image/video analysis
 
     # TTS Provider Selection
     tts_provider: str = "elevenlabs"  # "elevenlabs", "openai"

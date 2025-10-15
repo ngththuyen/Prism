@@ -6,9 +6,9 @@ import json
 import re
 from typing import Optional, Dict, Any
 
-# Optional Google GenAI SDK import (used for Gemini models)
+# Import Google's Generative AI library
 try:
-    from google import genai
+    import google.generativeai as genai
     _HAS_GOOGLE_GENAI = True
 except Exception:
     genai = None
@@ -33,18 +33,17 @@ class BaseAgent(ABC):
         # use_google controls whether to attempt to use Google Gemini via SDK
         self.use_google = bool(use_google) and _HAS_GOOGLE_GENAI
         self.google_api_key = google_api_key
-        self.google_client = None
 
         # Validate configuration
         if self.use_google:
             if not self.google_api_key:
                 raise ValueError("Google API key is required when use_google=True")
             if not _HAS_GOOGLE_GENAI:
-                raise ImportError("google-genai package is required. Install with: pip install google-genai")
+                raise ImportError("google-generativeai package is required. Install with: pip install google-generativeai")
             try:
-                # Initialize Google GenAI client with provided API key
-                self.google_client = genai.Client(api_key=self.google_api_key or self.api_key)
-                self.logger.info("Google GenAI client initialized for Gemini models")
+                # Configure the API
+                genai.configure(api_key=self.google_api_key or self.api_key)
+                self.logger.info("Google GenerativeAI configured successfully")
             except Exception as e:
                 self.logger.warning(f"Failed to initialize Google GenAI client: {e}. Falling back to HTTP OpenRouter calls")
                 self.google_client = None
@@ -64,36 +63,40 @@ class BaseAgent(ABC):
         if self.use_google and self.google_client:
             for attempt in range(max_retries):
                 try:
-                    # Initialize model for generation
-                    model = self.google_client.generative_model(model_name=self.model)
+                    # Configure generation parameters
+                    generation_config = {
+                        "temperature": temperature,
+                        "top_p": 1,
+                        "top_k": 1,
+                        "max_output_tokens": int(self.reasoning_tokens) if self.reasoning_tokens else 2048,
+                    }
 
-                    # Prepare the chat messages
-                    messages = [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message}
-                    ]
-
-                    # Use the model to generate content
-                    response = model.generate_content(
-                        messages,
-                        generation_config={
-                            "temperature": temperature,
-                            "max_output_tokens": int(self.reasoning_tokens) if self.reasoning_tokens else None
-                        }
+                    # Create chat with system prompt
+                    chat = genai.chat(
+                        model='gemini-pro',
+                        messages=[
+                            {"role": "user", "parts": [system_prompt]},
+                            {"role": "model", "parts": ["Understood, I will follow these instructions."]},
+                            {"role": "user", "parts": [user_message]}
+                        ],
+                        generation_config=generation_config
                     )
 
-                    # Extract text content from response
-                    content = response.text
+                    # Get response from the latest message
+                    response = chat.last
 
-                    # Attempt to extract token usage if present
+                    # Extract text content from response parts
+                    content = response.text if hasattr(response, 'text') else str(response)
+
+                    # Rough token tracking (approximate)
                     try:
-                        prompt_tokens = sum(len(msg["content"].split()) for msg in messages)  # Rough estimation
-                        completion_tokens = len(content.split())  # Rough estimation
+                        prompt_tokens = len(system_prompt.split()) + len(user_message.split())
+                        completion_tokens = len(content.split())
                         self.prompt_tokens += prompt_tokens
                         self.completion_tokens += completion_tokens
                         self.total_tokens += prompt_tokens + completion_tokens
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        self.logger.warning(f"Failed to track tokens: {e}")
 
                     self.logger.info(f"Google GenAI LLM call successful (attempt {attempt + 1})")
                     return content
