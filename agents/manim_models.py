@@ -84,8 +84,8 @@ class AnimationConfig(BaseModel):
 
 class SceneTransition(BaseModel):
     """Defines how scenes transition to each other"""
-    from_scene: str
-    to_scene: str
+    source_scene: str  # Changed from 'from_scene' to avoid Python keyword conflict
+    target_scene: str  # Changed from 'to_scene' for consistency
     transition_type: str = "fade"
     duration: float = 0.5
 
