@@ -92,8 +92,8 @@ class Settings(BaseSettings):
     ### NOTE: Reasoning tokens/effort settings exist for some providers (Anthropic-style or similar). When using Gemini, max_output_tokens may be used instead.
     
     # Reasoning setting (provider-specific tuning)
-    interpreter_reasoning_tokens: Optional[int] = 2048
-    animation_reasoning_tokens: Optional[int] = 4096
+    interpreter_reasoning_tokens: Optional[int] = 8192  # Increased from 2048
+    animation_reasoning_tokens: Optional[int] = 8192    # Increased from 4096
     
     interpreter_reasoning_effort: Optional[str] = "low"
     animation_reasoning_effort: Optional[str] = "medium"
