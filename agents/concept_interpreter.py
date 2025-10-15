@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from agents.base import BaseAgent
 import re
+import json
 
 
 class SubConcept(BaseModel):
@@ -184,20 +185,30 @@ EXAMPLE (Easy & Clear) for “Area of a Circle” in Vietnamese:
             # Format system prompt with target language
             system_prompt = self.SYSTEM_PROMPT.format(target_language=target_language)
 
-            response_json = self._call_llm_structured(
-                system_prompt=system_prompt,
-                user_message=user_message,
-                temperature=0.5,
-                max_retries=3,
-            )
+            for attempt in range(3):  # Retry up to 3 times
+                response_json = self._call_llm_structured(
+                    system_prompt=system_prompt,
+                    user_message=user_message,
+                    temperature=0.5,
+                    max_retries=3,
+                )
 
-            # Parse and validate with Pydantic
-            analysis = ConceptAnalysis(**response_json)
+                # Log raw response for debugging
+                self.logger.debug(f"Raw LLM response (attempt {attempt + 1}): {json.dumps(response_json, ensure_ascii=False)}")
 
-            self.logger.info(f"Successfully analyzed concept: {analysis.main_concept}")
-            self.logger.info(f"Generated {len(analysis.sub_concepts)} sub-concepts")
-
-            return analysis
+                try:
+                    # Parse and validate with Pydantic
+                    analysis = ConceptAnalysis(**response_json)
+                    self.logger.info(f"Successfully analyzed concept: {analysis.main_concept}")
+                    self.logger.info(f"Generated {len(analysis.sub_concepts)} sub-concepts")
+                    return analysis
+                except Exception as parse_error:
+                    self.logger.warning(f"JSON parsing failed on attempt {attempt + 1}: {parse_error}")
+                    if attempt < 2:
+                        self.logger.info("Retrying with stricter prompt")
+                        user_message += "\nEnsure the response is valid JSON with no extra text or backticks."
+                    else:
+                        raise ValueError(f"Failed to parse LLM response after 3 attempts: {parse_error}")
 
         except Exception as e:
             self.logger.error(f"Failed to analyze concept: {e}")
@@ -205,6 +216,5 @@ EXAMPLE (Easy & Clear) for “Area of a Circle” in Vietnamese:
 
     def _sanitize_input(self, text: str) -> str:
         """Remove potentially harmful characters from input"""
-        # Remove control characters but keep newlines
         sanitized = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
         return sanitized
