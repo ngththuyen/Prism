@@ -32,9 +32,11 @@ class ManimAgent(BaseAgent):
         output_dir: Path,
         config: Optional[AnimationConfig] = None,
         reasoning_tokens: Optional[float] = None,
-        reasoning_effort: Optional[str] = None
+        reasoning_effort: Optional[str] = None,
+        use_google: Optional[bool] = None,
+        google_api_key: Optional[str] = None
     ):
-        super().__init__(api_key=api_key, base_url=base_url, model=model, reasoning_tokens=reasoning_tokens, reasoning_effort=reasoning_effort)
+        super().__init__(api_key=api_key, base_url=base_url, model=model, reasoning_tokens=reasoning_tokens, reasoning_effort=reasoning_effort, use_google=use_google, google_api_key=google_api_key)
         self.output_dir = Path(output_dir)
         self.config = config or AnimationConfig()
 
