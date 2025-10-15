@@ -60,13 +60,13 @@ class BaseAgent(ABC):
                     )
                     generation_config = genai.types.GenerationConfig(
                         temperature=temperature,
-                        max_output_tokens=int(self.reasoning_tokens) if self.reasoning_tokens else 8192,
+                        max_output_tokens=int(self.reasoning_tokens) if self.reasoning_tokens else 16384,
                     )
                     actual_user_message = user_message
                     if json_mode:
-                        actual_user_message = f"{user_message}\n\nCRITICAL: Return ONLY valid JSON with no markdown, no code blocks (```json or ```), no extra text. Ensure proper JSON structure with correct braces and brackets."
+                        actual_user_message = f"{user_message}\n\nCRITICAL: Return ONLY valid JSON with no markdown, no code blocks (```json or ```), no extra text. Ensure proper JSON structure with all braces and brackets closed correctly."
                         generation_config.response_mime_type = "application/json"
-                    self.logger.debug(f"Sending user message to Gemini: {actual_user_message[:500]}...")
+                    self.logger.debug(f"Sending user message to Gemini (attempt {attempt + 1}): {actual_user_message[:500]}...")
                     response = model.generate_content(
                         actual_user_message,
                         generation_config=generation_config
@@ -82,7 +82,8 @@ class BaseAgent(ABC):
                             json.loads(sanitized_content)
                         except json.JSONDecodeError as e:
                             self.logger.error(f"JSON validation failed: {e}")
-                            self.logger.error(f"Problematic content: {sanitized_content[:500]}")
+                            self.logger.error(f"Problematic content (first 500 chars): {sanitized_content[:500]}")
+                            self.logger.error(f"Problematic content (last 200 chars): {sanitized_content[-200:]}")
                             raise Exception(f"Invalid JSON from Gemini: {e}")
                         content = sanitized_content
                     try:
@@ -124,7 +125,7 @@ class BaseAgent(ABC):
                 if json_mode:
                     payload["response_format"] = {"type": "json_object"}
                 url = f"{self.base_url}/chat/completions"
-                self.logger.debug(f"Sending request to OpenRouter: {json.dumps(payload, ensure_ascii=False)[:500]}...")
+                self.logger.debug(f"Sending request to OpenRouter (attempt {attempt + 1}): {json.dumps(payload, ensure_ascii=False)[:500]}...")
                 response = requests.post(
                     url,
                     headers=headers,
@@ -146,7 +147,8 @@ class BaseAgent(ABC):
                         json.loads(sanitized_content)
                     except json.JSONDecodeError as e:
                         self.logger.error(f"JSON validation failed: {e}")
-                        self.logger.error(f"Problematic content: {sanitized_content[:500]}")
+                        self.logger.error(f"Problematic content (first 500 chars): {sanitized_content[:500]}")
+                        self.logger.error(f"Problematic content (last 200 chars): {sanitized_content[-200:]}")
                         raise Exception(f"Invalid JSON from OpenRouter: {e}")
                     content = sanitized_content
                 self.logger.info(f"LLM call successful (attempt {attempt + 1})")
@@ -173,12 +175,16 @@ class BaseAgent(ABC):
                     system_prompt=system_prompt,
                     user_message=user_message,
                     temperature=temperature,
-                    max_retries=1,  # Inner retries handled here
+                    max_retries=1,
                     json_mode=True,
                 )
                 sanitized_response = self._sanitize_json_output(response)
                 sanitized_response = sanitized_response.strip()
-                if not sanitized_response.endswith('}') and not sanitized_response.endswith(']'):
+                # Attempt to fix incomplete JSON
+                if not sanitized_response.startswith(('{', '[')):
+                    self.logger.warning("JSON does not start with { or [, attempting to fix")
+                    sanitized_response = '{' + sanitized_response if 'main_concept' in sanitized_response else '[' + sanitized_response
+                if not sanitized_response.endswith(('}', ']')):
                     self.logger.warning("JSON appears incomplete, attempting to complete it")
                     open_braces = sanitized_response.count('{')
                     close_braces = sanitized_response.count('}')
@@ -231,6 +237,8 @@ class BaseAgent(ABC):
             sanitized = sanitized[first_brace:]
         elif first_bracket != -1:
             sanitized = sanitized[first_bracket:]
+        else:
+            sanitized = '{' + sanitized + '}' if 'main_concept' in sanitized else '[' + sanitized + ']'
         return sanitized
 
     @abstractmethod
