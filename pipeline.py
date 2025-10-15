@@ -151,7 +151,7 @@ class Pipeline:
             if progress_callback:
                 progress_callback("Analyzing concept..." if target_language != "Vietnamese" else "Phân tích khái niệm...", 0.1)
 
-            analysis = self._execute_concept_interpretation(concept)
+            analysis = self._execute_concept_interpretation(concept, target_language=target_language)
 
             if progress_callback:
                 progress_callback("Concept analysis complete" if target_language != "Vietnamese" else "Phân tích khái niệm hoàn tất", 0.3)
@@ -315,11 +315,11 @@ class Pipeline:
                 "error": str(e)
             }
     
-    def _execute_concept_interpretation(self, concept: str) -> ConceptAnalysis:
+    def _execute_concept_interpretation(self, concept: str, target_language: str = "English") -> ConceptAnalysis:
         """Execute concept interpretation step"""
         self.logger.info("Step 1: Concept Interpretation")
-        return self.concept_interpreter.execute(concept)
-    
+        return self.concept_interpreter.execute(concept, target_language)
+
     def _save_analysis(self, analysis: ConceptAnalysis, original_concept: str) -> Path:
         """Save concept analysis to JSON file with sanitized file name"""
         
