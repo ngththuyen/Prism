@@ -64,32 +64,34 @@ class BaseAgent(ABC):
         if self.use_google and self.google_client:
             for attempt in range(max_retries):
                 try:
-                    # Concatenate system + user into a prompt; SDK accepts text input
-                    prompt = system_prompt.strip() + "\n\n" + user_message.strip()
+                    # Initialize model for generation
+                    model = self.google_client.generative_model(model_name=self.model)
 
-                    # Use the 'generate' method to request text completion
-                    response = self.google_client.generate(
-                        model=self.model,
-                        temperature=temperature,
-                        max_output_tokens=int(self.reasoning_tokens) if self.reasoning_tokens else None,
-                        input=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}]
+                    # Prepare the chat messages
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ]
+
+                    # Use the model to generate content
+                    response = model.generate_content(
+                        messages,
+                        generation_config={
+                            "temperature": temperature,
+                            "max_output_tokens": int(self.reasoning_tokens) if self.reasoning_tokens else None
+                        }
                     )
 
-                    # SDK returns a list of candidates; join if needed
-                    candidates = getattr(response, 'candidates', None)
-                    if candidates and len(candidates) > 0:
-                        content = candidates[0].get('content') if isinstance(candidates[0], dict) else getattr(candidates[0], 'content', None)
-                    else:
-                        # Fallback to text field
-                        content = getattr(response, 'text', None) or str(response)
+                    # Extract text content from response
+                    content = response.text
 
                     # Attempt to extract token usage if present
                     try:
-                        usage = getattr(response, 'token_usage', None) or (response.get('usage') if isinstance(response, dict) else None)
-                        if usage:
-                            self.prompt_tokens += usage.get('input_tokens', 0) or usage.get('prompt_tokens', 0)
-                            self.completion_tokens += usage.get('output_tokens', 0) or usage.get('completion_tokens', 0)
-                            self.total_tokens += usage.get('total', 0) or usage.get('total_tokens', 0)
+                        prompt_tokens = sum(len(msg["content"].split()) for msg in messages)  # Rough estimation
+                        completion_tokens = len(content.split())  # Rough estimation
+                        self.prompt_tokens += prompt_tokens
+                        self.completion_tokens += completion_tokens
+                        self.total_tokens += prompt_tokens + completion_tokens
                     except Exception:
                         pass
 
