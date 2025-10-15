@@ -93,54 +93,44 @@ def generate_animation(concept: str, language: str = "English", progress=gr.Prog
         logger.error(f"Pipeline failed: {result.get('error', 'Unknown error')}")
         return None
 
-def create_interface(language: str = "English"):
-    """Create Gradio interface with dynamic language support"""
-    texts = UI_TEXT.get(language, UI_TEXT["English"])
+# Use a static language for the UI (default to Vietnamese for testing)
+language = "Vietnamese"  # Change to "English" if preferred
+texts = UI_TEXT.get(language, UI_TEXT["English"])
+
+with gr.Blocks(title=texts["title"]) as demo:
+    gr.Markdown(f"# {texts['title']}")
+    gr.Markdown(texts["description"])
     
-    with gr.Blocks(title=texts["title"]) as demo:
-        gr.Markdown(f"# {texts['title']}")
-        gr.Markdown(texts["description"])
-        
-        with gr.Row():
-            with gr.Column():
-                concept_input = gr.Textbox(
-                    label=texts["concept_label"],
-                    placeholder=texts["concept_placeholder"],
-                    lines=2
-                )
-                language_dropdown = gr.Dropdown(
-                    choices=["English", "Chinese", "Spanish", "Vietnamese"],
-                    value=language,
-                    label=texts["language_label"]
-                )
-                generate_btn = gr.Button(texts["generate_button"], variant="primary")
-        
-        with gr.Row():
-            video_output = gr.Video(
-                label=texts["video_label"],
-                autoplay=True
+    with gr.Row():
+        with gr.Column():
+            concept_input = gr.Textbox(
+                label=texts["concept_label"],
+                placeholder=texts["concept_placeholder"],
+                lines=2
             )
-        
-        gr.Examples(
-            examples=texts["examples"],
-            inputs=concept_input
-        )
-        
-        generate_btn.click(
-            fn=generate_animation,
-            inputs=[concept_input, language_dropdown],
-            outputs=video_output
-        )
-        
-        # Update interface when language changes
-        language_dropdown.change(
-            fn=create_interface,
-            inputs=language_dropdown,
-            outputs=demo
+            language_dropdown = gr.Dropdown(
+                choices=["English", "Chinese", "Spanish", "Vietnamese"],
+                value=language,
+                label=texts["language_label"]
+            )
+            generate_btn = gr.Button(texts["generate_button"], variant="primary")
+    
+    with gr.Row():
+        video_output = gr.Video(
+            label=texts["video_label"],
+            autoplay=True
         )
     
-    return demo
+    gr.Examples(
+        examples=texts["examples"],
+        inputs=concept_input
+    )
+    
+    generate_btn.click(
+        fn=generate_animation,
+        inputs=[concept_input, language_dropdown],
+        outputs=video_output
+    )
 
 if __name__ == "__main__":
-    demo = create_interface()
     demo.launch(share=False, inbrowser=True)
