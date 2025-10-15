@@ -1,82 +1,9 @@
-from pydantic import BaseModel, Field, validator
-from typing import List, Optional, Dict, Any, Tuple, Union, Literal
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Tuple
 from enum import Enum
 import re
 
 
-class EasingType(str, Enum):
-    """Valid easing types that map to Manim rate functions"""
-    LINEAR = "linear"
-    EASE_IN = "ease_in"
-    EASE_OUT = "ease_out"
-    EASE_IN_OUT = "ease_in_out"
-    SMOOTH = "smooth"
-    RUSH_INTO = "rush_into"
-    RUSH_FROM = "rush_from"
-    EXPONENTIAL_DECAY = "exponential_decay"
-
-
-class AnimationStyle(str, Enum):
-    """Animation styles available in Manim"""
-    FADE = "fade"
-    GROW = "grow"
-    TRANSFORM = "transform"
-    WRITE = "write"
-    INDICATE = "indicate"
-    FOCUS = "focus"
-
-
-class AnimationConfig(BaseModel):
-    """Configuration for a single animation"""
-    easing: Optional[EasingType] = Field(default=EasingType.SMOOTH, description="The easing function to use")
-    duration: Optional[float] = Field(default=None, description="Override the default duration")
-    style: Optional[AnimationStyle] = Field(default=None, description="The animation style to use")
-    lag_ratio: Optional[float] = Field(default=None, description="Delay between elements in group animations")
-    
-    @validator('easing')
-    def validate_easing(cls, v):
-        if v and not isinstance(v, EasingType):
-            try:
-                return EasingType(v)
-            except ValueError:
-                return EasingType.SMOOTH
-        return v
-
-
-class ActionParameters(BaseModel):
-    """Parameters for scene actions with comprehensive animation support"""
-    # Content parameters
-    text: Optional[str] = None
-    color: Optional[str] = None
-    equation: Optional[str] = None
-    style: Optional[str] = None
-    label: Optional[str] = None
-    
-    # Target parameters
-    from_target: Optional[str] = None
-    to_target: Optional[str] = None
-    
-    # Visual parameters
-    position: Optional[Union[str, List[float]]] = None
-    scale: Optional[float] = None
-    opacity: Optional[float] = None
-    
-    # Animation parameters
-    animation: Optional[AnimationConfig] = Field(
-        default_factory=AnimationConfig,
-        description="Animation-specific configuration"
-    )
-    
-    # Additional parameters
-    spans: Optional[List[Dict[str, str]]] = None
-    branches: Optional[List[Dict[str, str]]] = None
-
-    @validator('*', pre=True)
-    def remove_easing(cls, v):
-        """Remove easing parameter if present in nested structures"""
-        if isinstance(v, dict):
-            v.pop('easing', None)
-        return v
 
 
 class SceneAction(BaseModel):
@@ -86,7 +13,7 @@ class SceneAction(BaseModel):
     description: str
     target: str
     duration: float
-    parameters: ActionParameters = Field(default_factory=ActionParameters)
+    parameters: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ScenePlan(BaseModel):

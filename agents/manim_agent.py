@@ -32,27 +32,6 @@ class ManimAgent(BaseAgent):
     using scene planning and Manim code generation with <manim> tag extraction.
     """
 
-    @staticmethod
-    def _clean_parameters(parameters: dict) -> dict:
-        """
-        Clean parameters by removing unsupported attributes like 'easing'
-        while preserving the original structure.
-        """
-        if not isinstance(parameters, dict):
-            return parameters
-        
-        cleaned = parameters.copy()
-        cleaned.pop('easing', None)
-        
-        for key, value in cleaned.items():
-            if isinstance(value, dict):
-                cleaned[key] = ManimAgent._clean_parameters(value)
-            elif isinstance(value, list):
-                cleaned[key] = [ManimAgent._clean_parameters(item) if isinstance(item, dict) else item 
-                              for item in value]
-        
-        return cleaned
-
     def __init__(
         self,
         api_key: str,
@@ -739,29 +718,6 @@ class {class_name}(Scene):
                 token_usage=self.get_token_usage()
             )
 
-    def _clean_parameters(self, parameters: dict) -> dict:
-        """
-        Clean parameters by removing unsupported attributes like 'easing'
-        while preserving the original structure.
-        """
-        if not isinstance(parameters, dict):
-            return parameters
-        
-        # Create a new dict to avoid modifying the original
-        cleaned = parameters.copy()
-        # Remove easing if present
-        cleaned.pop('easing', None)
-        
-        # Clean nested dictionaries and lists
-        for key, value in cleaned.items():
-            if isinstance(value, dict):
-                cleaned[key] = self._clean_parameters(value)
-            elif isinstance(value, list):
-                cleaned[key] = [self._clean_parameters(item) if isinstance(item, dict) else item 
-                              for item in value]
-        
-        return cleaned
-
     def _generate_scene_plans(self, concept_analysis: ConceptAnalysis) -> tuple[List[ScenePlan], Dict[str, Any]]:
         """Generate scene plans from concept analysis"""
 
@@ -785,12 +741,6 @@ class {class_name}(Scene):
             scene_plans = []
             for plan_data in response_json.get("scene_plans", []):
                 try:
-                    # Clean parameters in actions before creating ScenePlan
-                    if 'actions' in plan_data:
-                        for action in plan_data['actions']:
-                            if 'parameters' in action:
-                                action['parameters'] = self._clean_parameters(action['parameters'])
-                    
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
                 except Exception as e:
@@ -1182,22 +1132,3 @@ class {class_name}(Scene):
             "renderer_status": "ready" if self.renderer.validate_manim_installation() else "not_ready"
         }
 
-    # Example fix for accessing 'easing' in scene plan actions:
-    def get_easing(parameters):
-        return parameters.get('easing', 'linear') if isinstance(parameters, dict) else 'linear'
-
-    # In your code where you use 'easing', replace:
-    #   easing = parameters['easing']
-    # bằng:
-    #   easing = get_easing(parameters)
-
-def remove_easing_key(obj):
-    """Đệ quy loại bỏ mọi trường 'easing' trong dict hoặc list lồng nhau."""
-    if isinstance(obj, dict):
-        if 'easing' in obj:
-            del obj['easing']
-        for k, v in obj.items():
-            self._clean_parameters(v)
-    elif isinstance(obj, list):
-        for item in obj:
-            self._clean_parameters(item)
