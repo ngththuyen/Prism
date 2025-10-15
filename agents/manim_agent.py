@@ -740,6 +740,16 @@ class {class_name}(Scene):
             # Parse and validate scene plans
             scene_plans = []
             for plan_data in response_json.get("scene_plans", []):
+                # --- Sanitize actions: move any top-level 'from'/'to' into 'parameters' ---
+                if "actions" in plan_data:
+                    for action in plan_data["actions"]:
+                        for key in ["from", "to"]:
+                            if key in action:
+                                if "parameters" not in action or not isinstance(action["parameters"], dict):
+                                    action["parameters"] = {}
+                                # Move the value into parameters
+                                action["parameters"][key] = action[key]
+                                del action[key]
                 try:
                     scene_plan = ScenePlan(**plan_data)
                     scene_plans.append(scene_plan)
