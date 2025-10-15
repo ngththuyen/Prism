@@ -13,10 +13,8 @@ except Exception:
     genai = None
     _HAS_GOOGLE_GENAI = False
 
-
 class BaseAgent(ABC):
     """Base class for all AI agents using OpenRouter"""
-
     def __init__(self, api_key: str, base_url: str, model: str, reasoning_tokens: Optional[float] = None, reasoning_effort: Optional[str] = None, use_google: Optional[bool] = None, google_api_key: Optional[str] = None):
         self.api_key = api_key
         self.base_url = base_url.rstrip('/')
@@ -29,7 +27,6 @@ class BaseAgent(ABC):
         self.completion_tokens = 0
         self.use_google = bool(use_google) and _HAS_GOOGLE_GENAI
         self.google_api_key = google_api_key
-
         if self.use_google:
             if not self.google_api_key:
                 raise ValueError("Google API key is required when use_google=True")
@@ -41,7 +38,6 @@ class BaseAgent(ABC):
             except Exception as e:
                 self.logger.warning(f"Failed to configure Google GenAI: {e}. Falling back to HTTP OpenRouter calls")
                 self.use_google = False
-
     def _call_llm(
         self,
         system_prompt: str,
@@ -64,15 +60,16 @@ class BaseAgent(ABC):
                     )
                     actual_user_message = user_message
                     if json_mode:
-                        actual_user_message = f"{user_message}\n\nCRITICAL: Return ONLY valid JSON with no markdown, no code blocks (```json or ```), no extra text. Ensure proper JSON structure with all braces and brackets closed correctly."
+                        actual_user_message = f"{user_message}\n\nCRITICAL: Return ONLY valid JSON with no markdown, no code blocks (```json or ```), no extra text. Ensure proper JSON structure with all braces and brackets closed correctly. Example: {{'main_concept': 'value', 'sub_concepts': []}}"
                         generation_config.response_mime_type = "application/json"
                     self.logger.debug(f"Sending user message to Gemini (attempt {attempt + 1}): {actual_user_message[:500]}...")
                     response = model.generate_content(
                         actual_user_message,
                         generation_config=generation_config
                     )
-                    if not response or not response.text:
-                        raise Exception(f"Empty response from Gemini. Finish reason: {response.candidates[0].finish_reason if response.candidates else 'unknown'}")
+                    if not response or not hasattr(response, 'text') or not response.text:
+                        reason = response.candidates[0].finish_reason if response and response.candidates else 'unknown'
+                        raise Exception(f"Empty or invalid response from Gemini. Finish reason: {reason}")
                     content = response.text
                     self.logger.debug(f"Raw Gemini response (attempt {attempt + 1}): {content[:1000]}")
                     if json_mode:
@@ -102,7 +99,6 @@ class BaseAgent(ABC):
                         time.sleep(2 ** attempt)
                         continue
                     raise Exception(f"Google GenAI calls failed after {max_retries} attempts: {e}")
-        
         for attempt in range(max_retries):
             try:
                 messages = [
@@ -156,11 +152,9 @@ class BaseAgent(ABC):
             except Exception as e:
                 self.logger.warning(f"LLM call failed (attempt {attempt + 1}/{max_retries}): {e}")
                 if attempt < max_retries - 1:
-                    wait_time = 2**attempt
-                    time.sleep(wait_time)
+                    time.sleep(2 ** attempt)
                 else:
                     raise Exception(f"LLM call failed after {max_retries} attempts: {e}")
-
     def _call_llm_structured(
         self,
         system_prompt: str,
@@ -180,12 +174,11 @@ class BaseAgent(ABC):
                 )
                 sanitized_response = self._sanitize_json_output(response)
                 sanitized_response = sanitized_response.strip()
-                # Attempt to fix incomplete JSON
                 if not sanitized_response.startswith(('{', '[')):
-                    self.logger.warning("JSON does not start with { or [, attempting to fix")
+                    self.logger.warning(f"JSON does not start with {{ or [, attempting to fix (attempt {attempt + 1})")
                     sanitized_response = '{' + sanitized_response if 'main_concept' in sanitized_response else '[' + sanitized_response
                 if not sanitized_response.endswith(('}', ']')):
-                    self.logger.warning("JSON appears incomplete, attempting to complete it")
+                    self.logger.warning(f"JSON appears incomplete, attempting to complete it (attempt {attempt + 1})")
                     open_braces = sanitized_response.count('{')
                     close_braces = sanitized_response.count('}')
                     open_brackets = sanitized_response.count('[')
@@ -202,7 +195,7 @@ class BaseAgent(ABC):
                     self.logger.error(f"Problematic JSON (first 500 chars): {sanitized_response[:500]}")
                     self.logger.error(f"Problematic JSON (last 200 chars): {sanitized_response[-200:]}")
                     if attempt < max_retries - 1:
-                        self.logger.info(f"Retrying with increased max_output_tokens...")
+                        self.logger.info(f"Retrying with increased max_output_tokens (attempt {attempt + 1})...")
                         if self.use_google and self.reasoning_tokens:
                             old_tokens = self.reasoning_tokens
                             self.reasoning_tokens = int(self.reasoning_tokens * 1.5)
@@ -215,7 +208,6 @@ class BaseAgent(ABC):
                     time.sleep(2 ** attempt)
                     continue
                 raise ValueError(f"Failed to get valid JSON response after {max_retries} attempts: {str(e)[:200]}")
-
     def get_token_usage(self) -> Dict[str, int]:
         """Return token usage statistics"""
         return {
@@ -223,7 +215,6 @@ class BaseAgent(ABC):
             "completion_tokens": self.completion_tokens,
             "total_tokens": self.total_tokens,
         }
-
     def _sanitize_json_output(self, text: str) -> str:
         """Remove ```json ``` code blocks and other markdown artifacts from LLM output"""
         sanitized = re.sub(r'```json\s*', '', text, flags=re.IGNORECASE)
@@ -240,7 +231,6 @@ class BaseAgent(ABC):
         else:
             sanitized = '{' + sanitized + '}' if 'main_concept' in sanitized else '[' + sanitized + ']'
         return sanitized
-
     @abstractmethod
     def execute(self, *args, **kwargs):
         """Execute the agent's main task - to be implemented by subclasses"""
