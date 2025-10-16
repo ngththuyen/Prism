@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import google.generativeai as genai
+
 from agents.base import BaseAgent
 from agents.concept_interpreter import ConceptAnalysis, SubConcept
 from agents.manim_models import (
@@ -16,9 +16,6 @@ from agents.manim_models import (
     AnimationResult, AnimationConfig, AnimationMetadata
 )
 from rendering.manim_renderer import ManimRenderer
-from config import settings
-
-genai.configure(api_key=settings.google_api_key)
 
 
 class ManimAgent(BaseAgent):
@@ -29,19 +26,19 @@ class ManimAgent(BaseAgent):
 
     def __init__(
         self,
-        api_key: str = settings.google_api_key,
-        base_url: str = "",
-        model: str = settings.reasoning_model,
-        output_dir: Path = settings.output_dir,
+        api_key: str,
+        base_url: str,
+        model: str,
+        output_dir: Path,
         config: Optional[AnimationConfig] = None,
         reasoning_tokens: Optional[float] = None,
         reasoning_effort: Optional[str] = None
     ):
         super().__init__(api_key=api_key, base_url=base_url, model=model, reasoning_tokens=reasoning_tokens, reasoning_effort=reasoning_effort)
-        self.gemini_model = genai.GenerativeModel(model)
         self.output_dir = Path(output_dir)
         self.config = config or AnimationConfig()
 
+        # Initialize renderer
         self.renderer = ManimRenderer(
             output_dir=self.output_dir / "scenes",
             quality=self.config.quality,
@@ -50,15 +47,12 @@ class ManimAgent(BaseAgent):
             max_retries=self.config.max_retries_per_scene
         )
 
+        # Ensure output directories exist
         self.output_dir.mkdir(parents=True, exist_ok=True)
         (self.output_dir / "scene_codes").mkdir(parents=True, exist_ok=True)
         (self.output_dir / "animations").mkdir(parents=True, exist_ok=True)
         (self.output_dir / "scenes").mkdir(parents=True, exist_ok=True)
         (self.output_dir / "scene_plans").mkdir(parents=True, exist_ok=True)
-
-    def execute(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
-        """Execute the Manim animation generation for the given concept analysis"""
-        return self.generate_animations(concept_analysis)
 
     SCENE_PLANNING_PROMPT = """You are a Manim Scene Planning Agent for an educational STEM animation system.
 
@@ -116,13 +110,6 @@ class ManimAgent(BaseAgent):
 7. **Element Naming**:
    - Use descriptive, stable targets (e.g., "bayes_equation", "likelihood_label", "frequency_grid") reused across scenes.
    - When transforming, specify `"parameters": {"from": "<old_target>", "to": "<new_target>"}` where helpful.
-
-8. **LaTeX Formatting (IMPORTANT)**:
-   - When specifying equations in parameters, use proper LaTeX with DOUBLE braces for subscripts/superscripts
-   - ✅ CORRECT: `"equation": "F_{{n}} = F_{{n-1}} + F_{{n-2}}"`
-   - ❌ WRONG: `"equation": "F_n = F_{n-1} + F_{n-2}"`
-   - Always escape backslashes: `\\frac`, `\\sum`, `\\int`
-   - For text in math mode: `\\text{{your text}}`
 
 **OUTPUT FORMAT**:
 Return ONLY valid JSON matching this exact structure:
@@ -285,7 +272,7 @@ Return ONLY valid JSON matching this exact structure:
                     "description": "Draw tree branches for D and ¬D from population",
                     "target": "probability_tree",
                     "duration": 6.0,
-                    "parameters": {{"branches": [{{"label": "D (1%)", "color": "#3B82F6"}}, {{"label": "¬D (99%)", "color": "#3B82F6"}}]}}
+                    "parameters": {{"from": "population_box", "branches": [{{"label": "D (1%)", "color": "#3B82F6"}}, {{"label": "¬D (99%)", "color": "#3B82F6"}}]}}
                 }},
                 {{
                     "action_type": "wait",
@@ -424,358 +411,271 @@ Return ONLY valid JSON matching this exact structure:
                     "target": "narration_pause_13",
                     "duration": 2.0,
                     "parameters": {{}}
+                }},
+                {{
+                    "action_type": "transform",
+                    "element_type": "math_equation",
+                    "description": "Compute final posterior and highlight",
+                    "target": "substitution",
+                    "duration": 4.0,
+                    "parameters": {{"to_equation": "P(D\\mid +)\\approx 0.1538\\ (15.38\\%)", "color": "#EF4444", "easing": "ease_in_out"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Hold on final posterior",
+                    "target": "narration_pause_14",
+                    "duration": 3.0,
+                    "parameters": {{}}
                 }}
             ],
-            "scene_dependencies": ["intro_context", "equation_intro", "tree_diagram", "frequency_view"]
+            "scene_dependencies": ["equation_intro", "frequency_view"]
+        }},
+        {{
+            "id": "interpretation_pitfalls",
+            "title": "Interpretation & Common Pitfall",
+            "description": "Explain why a positive test doesn't mean near-certainty; connect to base rates.",
+            "sub_concept_id": "interpretation",
+            "actions": [
+                {{
+                    "action_type": "write",
+                    "element_type": "text",
+                    "description": "State the common mistake: confusing P(+|D) with P(D|+)",
+                    "target": "pitfall_text",
+                    "duration": 4.0,
+                    "parameters": {{"text": "Pitfall: P(+|D) \\neq P(D|+)", "color": "#EF4444"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause for narrator",
+                    "target": "narration_pause_15",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "highlight",
+                    "element_type": "diagram",
+                    "description": "Re-highlight 90 TP vs 495 FP on the same grid to show contrast",
+                    "target": "frequency_grid_contrast",
+                    "duration": 4.0,
+                    "parameters": {{"groups": [{{"label": "TP=90", "color": "#22C55E"}}, {{"label": "FP=495", "color": "#EF4444"}}]}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Hold to let the contrast register",
+                    "target": "narration_pause_16",
+                    "duration": 3.0,
+                    "parameters": {{}}
+                }}
+            ],
+            "scene_dependencies": ["posterior_compute"]
+        }},
+        {{
+            "id": "summary_takeaways",
+            "title": "Summary & Takeaways",
+            "description": "Summarize Bayes' theorem using the same scenario and numbers.",
+            "sub_concept_id": "summary",
+            "actions": [
+                {{
+                    "action_type": "write",
+                    "element_type": "text",
+                    "description": "List key takeaways linked to the same example",
+                    "target": "summary_points",
+                    "duration": 6.0,
+                    "parameters": {{"text": "1) Base rates matter. 2) Evidence combines with prior via likelihood. 3) Posterior here ≈ 15.38%.", "color": "#FFFFFF"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Final narration pause",
+                    "target": "narration_pause_17",
+                    "duration": 3.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "fade_out",
+                    "element_type": "group",
+                    "description": "Fade out all elements to close",
+                    "target": "all_elements",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }}
+            ],
+            "scene_dependencies": ["interpretation_pitfalls"]
         }}
     ]
 }}
-"""
 
-    CODE_GENERATION_PROMPT = """You are a Manim Code Generation Agent. Generate ONLY working, error-free Manim code.
+Generate scene plans that will create clear, educational animations for the given concept, using a single consistent example across scenes, with slow pacing and explicit narration pauses after each major action."""
 
-**CRITICAL: Use ONLY valid Manim methods. Invalid methods = instant crash.**
+    CODE_GENERATION_PROMPT = """You are a Manim Code Generation Agent for creating **very simple, 2D educational STEM animations**.
 
-**INPUT SCENE PLAN**:
+**TASK**: From the single **SCENE PLAN** below (one scene at a time), generate complete, executable Manim code for **Manim Community Edition v0.19** that faithfully renders the specified actions with slow, narrator-friendly pacing.
+
+**SCENE PLAN (SINGLE SCENE ONLY)**:
 {scene_plan}
 
-**REQUIRED CODE STRUCTURE**:
-```python
+**CLASS NAME**: {class_name}
+**TARGET DURATION (approx.)**: {target_duration} seconds
+
+============================================================
+SIMPLE 2D-ONLY MODE (STRICT)
+============================================================
+
+0) **Hard Limits (Do Not Violate)**
+   - **2D only**: No 3D classes/cameras/surfaces/axes3D; do not import/use `ThreeDScene`.
+   - **Exactly one scene class** named **{class_name}**, inheriting from `Scene`.
+   - **One file**, **one class**, **one `construct(self)`** method.
+   - **No updaters** (no `add_updater`, no `always_redraw`).
+   - **No ValueTracker / DecimalNumber**; keep logic static and stepwise.
+   - **No config edits**, no camera/frame changes, no run_time tweaks (use `self.wait()` only).
+
+1) **Imports**
+   - Always start with: `from manim import *`
+   - Optionally: `import numpy as np` **only if actually used**.
+   - Import nothing else.
+
+2) **Element Types & Mapping**
+   - Use **`Text`** for plain text, **`MathTex`** for math, **`Tex`** for LaTeX (non-math).
+   - Allowed 2D mobjects: `Dot, Line, Arrow, Vector, Circle, Square, Rectangle, Triangle, NumberPlane, Axes, Brace, SurroundingRectangle, Text, MathTex, Tex, VGroup`.
+   - Unsupported elements in the plan (e.g., complex “diagram” types) must be **downgraded** to simple shapes + labels (e.g., boxes, lines, arrows, small groups of dots).
+
+3) **Action → Code Mapping (Use Only These)**
+   - `"write"` → `self.play(Write(obj))`
+   - `"create"` → `self.play(Create(obj))`
+   - `"fade_in"` / `"fade_out"` → `FadeIn(obj)` / `FadeOut(obj)`
+   - `"transform"` → `Transform(old, new)` (both must exist/added)
+   - `"replacement_transform"` → `ReplacementTransform(old, new)`
+   - `"move"` → `obj.animate.shift(DIR * amount)`
+   - `"highlight"` → Prefer `Indicate(obj)`; or show a `SurroundingRectangle(obj)` with `FadeIn`/`FadeOut`
+   - `"wait"` → `self.wait(duration)`
+   - Any other `action_type` not listed → use nearest allowed mapping or **skip with a short comment** (still respect pacing).
+
+4) **Using `target` as Variable Names (Continuity)**
+   - For each action, **use the plan’s `"target"` as the Python variable name** (sanitize to snake_case, alphanumerics + underscores).
+   - Reuse the same variable to transform/indicate; do **not** recreate after `FadeOut` unless the plan explicitly reintroduces it.
+   - If the SCENE PLAN references elements created in earlier scenes, **stub a minimal placeholder** (e.g., a labeled `Rectangle` or `Text`) consistent with the example, so this scene remains executable without cross-scene state.
+
+5) **Parameters Handling**
+   - Map common fields directly:
+     - `{{"text": "..."}}` → Text(...) or Tex(...)
+     - `{{"equation": "..."}}` → MathTex(r"...")
+     - `{{"color": BUILTIN_COLOR}}`
+   - **Colors (Built-ins Only)**: `WHITE, BLACK, RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, PINK`. **Never use CYAN.**
+   - If plan provides hex colors (e.g., `#3B82F6`), **replace with the closest built-in** (e.g., `BLUE`, `GREEN`, `RED`, `WHITE`).
+   - Ignore unsupported params silently; keep code minimal.
+
+6) **Pacing & Narration (Derived from Plan)**
+   - After **every significant action**, insert a pause:  
+     `pause = clamp(round(action.duration * 0.5), 1, 3)` → `self.wait(pause)`
+   - If an explicit `"wait"` action appears, honor its `"duration"` directly (clamp to [1, 4] if very large).
+   - Animations should feel **slow and deliberate**; do **not** chain many animations without waits.
+
+7) **Layout & Anti-overlap Heuristics**
+   - Keep a simple, readable layout:
+     - Optional title near top: `to_edge(UP)`
+     - Main content centered; secondary labels `next_to(...)`
+   - Prefer `next_to`, `to_edge`, small `shift` values; avoid dense stacking.
+   - If multiple texts/equations appear, place them **vertically** with `next_to(prev, DOWN)`.
+   - Keep font sizes moderate (e.g., `Text(..., font_size=36–48)`) to avoid overflow.
+   - Keep explaination text, calculation and the visualization seperate to avoid overlapping
+
+8) **Flow (Minimal & Clear)**
+   - Brief title (2–3s), then step-by-step reveal matching the order of `actions`.
+   - Insert `self.wait(1)` **at minimum** between logical steps if the plan’s duration is missing.
+   - End with `self.wait(2)` holding the final state.
+
+9) **Graceful Downgrades for Heavy Visuals**
+   - Large “grids” or thousands of dots: substitute a labeled `Rectangle` or a **small** `VGroup` (≤ 20 dots) plus a label like `"10,000 cases (schematic)"`.
+   - Complex “tree diagrams”: approximate with `Line` + `Text` labels; keep branches ≤ 4 elements.
+
+10) **Robustness**
+   - Ensure each mobject is **created/added** before transforming/indicating it.
+   - Do not reference objects after `FadeOut` unless re-created.
+   - Only allowed animations/mobjects; **no** camera moves, seeds, randomness, external assets, or experimental APIs.
+   - Make sure that your code match with the concept we are tring to visualize.
+   - The visualization must be correct and reflect the topic being shown since this will affect the learning outcome.
+   - Avoid using uncommon parameters and methods in your code.
+
+11) **Consistency with the Planner’s Example**
+   - **Do not change** numeric values or scenario details present in this scene plan (this preserves cross-scene example consistency).
+   - Keep variable names identical to `"target"` (post-sanitization) across all actions in this scene.
+
+12) **DO NOT INCLUDE BACKTICKS (``) IN YOUR CODE, EVER!**
+
+**GUIDELINE**:
+- Skim through the scence and think of a draft version.
+- Make sure to iterate through the code to make sure all the codes are correct.
+- You have to make sure that all elements are created and placed correctly on the scene.
+
+============================================================
+OUTPUT FORMAT (MANDATORY)
+============================================================
+<manim>
 from manim import *
+# Manim Community v0.19 — Simple 2D Scene
 
 class {class_name}(Scene):
     def construct(self):
-        self.camera.background_color = "#0f0f0f"
-        # Your code here
-```
+        # Optional title (avoid overlap by placing at top)
+        # title = Text("Your Title", font_size=48).to_edge(UP)
+        # self.play(Write(title)); self.wait(2)
 
-═══════════════════════════════════════════════════════════════════════════════
-🔴 CRITICAL METHODS - ONLY USE THESE (Others will CRASH):
-═══════════════════════════════════════════════════════════════════════════════
+        # Map actions in order from the SCENE PLAN:
+        # Example mappings (replace with this scene's real actions):
+        # eq = MathTex(r"P(D\\mid +)=\\frac{{P(+\\mid D)P(D)}}{{P(+)}}", color=WHITE)
+        # self.play(Write(eq)); self.wait(2)
+        # box = Rectangle(width=5, height=3, color=BLUE)
+        # self.play(Create(box)); self.wait(1)
+        # hl = SurroundingRectangle(eq, color=RED)
+        # self.play(Create(hl)); self.wait(1); self.play(FadeOut(hl))
+        # self.play(eq.animate.shift(DOWN*1.2)); self.wait(2)
 
-**VALID positioning methods** (ONLY these exist):
-  ✅ obj.shift(direction)              # Relative move
-  ✅ obj.move_to(point)                # Absolute position [x, y, z]
-  ✅ obj.to_edge(edge, buff=0)         # Snap to screen edge (UP, DOWN, LEFT, RIGHT)
-  ✅ obj.next_to(other, direction)     # Position relative to another object
-  ✅ obj.scale(factor)                 # Scale by factor
-  ✅ obj.set_color(color)              # Change color
-  ✅ obj.rotate(angle)                 # Rotate by angle
-  ✅ group.arrange(direction, buff=0)  # Arrange objects in group
-
-**INVALID methods** (NEVER use - will crash):
-  ❌ obj.to_center()                   # WRONG - doesn't exist
-  ❌ obj.center()                      # WRONG - doesn't exist  
-  ❌ obj.to_origin()                   # WRONG - doesn't exist
-  ❌ obj.center_on_screen()            # WRONG - doesn't exist
-  ❌ obj.get_center_point()            # WRONG - doesn't exist
-
-**CORRECT alternatives**:
-  ✅ obj.move_to([0, 0, 0])            # Center at origin
-  ✅ obj.move_to(ORIGIN)               # Center at origin
-  ✅ obj.to_edge(UP)                   # Top of screen
-  ✅ obj.shift(ORIGIN - obj.get_center())  # Move to origin
-
-═══════════════════════════════════════════════════════════════════════════════
-✅ VALID MANIM OBJECTS & METHODS - Complete Reference:
-═══════════════════════════════════════════════════════════════════════════════
-
-**Text Objects** (ALL require font="sans-serif"):
-  obj = Text("Hello", font="sans-serif", color=WHITE, font_size=36)
-  obj = MathTex(r"F = ma", color=BLUE, font_size=44)
-  obj = Tex(r"\\frac{{{{a}}}}{{{{b}}}}")
-
-**Shapes** (Basic):
-  obj = Circle(radius=1, color=BLUE, fill_opacity=0.5)
-  obj = Square(side_length=2, color=GREEN)
-  obj = Rectangle(height=2, width=3, color=RED)
-  obj = Triangle(color=YELLOW)
-  obj = Ellipse(width=3, height=2)
-  obj = Arc(radius=1, angle=PI/2)
-  obj = Line(start=[0,0,0], end=[1,1,0])
-  obj = Arrow(start=[0,0,0], end=[1,0,0], color=RED)
-  obj = Polygon([0,0,0], [1,0,0], [1,1,0])
-
-**Styling** (MUST use these exact signatures):
-  obj.set_fill(color, opacity)        # opacity is 0-1 (NOT fill_opacity=)
-  obj.set_stroke(color, width)        # width in pixels (NOT stroke_width=)
-  obj.set_color(color)
-  obj.set_opacity(value)              # 0-1
-  obj.set_z_index(value)              # Layer depth
-
-**Positioning** (EXACT method names):
-  obj.shift(UP * 2)                   # Move by vector
-  obj.move_to([0, 2, 0])              # Move to absolute point
-  obj.to_edge(UP, buff=0.5)           # Snap to edge
-  obj.next_to(other, DOWN, buff=0.3)  # Next to other object
-  obj.align_to(other, UP)             # Align with other
-  obj.scale(2)                        # Scale by factor
-  obj.rotate(PI/4)                    # Rotate by angle
-  group.arrange(RIGHT, buff=1)        # Arrange group horizontally
-
-**Grouping**:
-  group = VGroup(obj1, obj2, obj3)    # Group objects
-  group.add(obj4)                     # Add to group
-  group.arrange(DOWN)                 # Arrange vertically
-
-**Animations** (EXACT names):
-  Create(obj)                         # Draw shape
-  Write(text)                         # Write text
-  FadeIn(obj)                         # Fade in
-  FadeOut(obj)                        # Fade out
-  Transform(obj1, obj2)               # Transform one to another
-  ReplacementTransform(obj1, obj2)    # Replace and transform
-  Indicate(obj, color=RED)            # Highlight
-  Circumscribe(obj)                   # Draw around
-  Flash(obj)                          # Flash effect
-  obj.animate.shift(UP)               # Animate motion
-  obj.animate.scale(2)                # Animate scale
-
-**Getting info** (Methods that return values):
-  obj.get_center()                    # [x, y, z]
-  obj.get_width()                     # Width in units
-  obj.get_height()                    # Height in units
-  obj.get_left()                      # Left edge point
-  obj.get_right()                     # Right edge point
-  obj.get_top()                       # Top edge point
-  obj.get_bottom()                    # Bottom edge point
-
-**COMMON CONSTANTS**:
-  UP, DOWN, LEFT, RIGHT               # Directions
-  ORIGIN = [0, 0, 0]                  # Center
-  WHITE, BLACK, BLUE, RED, GREEN, YELLOW, GRAY, etc.  # Colors
-  PI, TAU                             # Math constants
-
-═══════════════════════════════════════════════════════════════════════════════
-🔴 #1 CRITICAL ERROR - Empty VGroup Positioning:
-═══════════════════════════════════════════════════════════════════════════════
-
-❌ WRONG:
-    group = VGroup()  # Empty!
-    label = Text("Label").next_to(group, UP)  # CRASH - empty VGroup
-
-❌ WRONG:
-    group = VGroup().arrange(RIGHT)  # Empty! CRASH on arrange
-
-❌ WRONG:
-    text1 = Text("A")
-    text2 = Text("B").next_to(text1, DOWN)  # OK so far
-    group = VGroup(text1, text2)  # Now they're grouped
-    group.arrange(RIGHT)  # CRASH - text2 is already positioned!
-
-✅ CORRECT:
-    text1 = Text("A", font="sans-serif")
-    text2 = Text("B", font="sans-serif")
-    group = VGroup(text1, text2)  # Create group WITH objects
-    group.arrange(DOWN, buff=0.5)  # THEN arrange
-    label = Text("Group", font="sans-serif").next_to(group, UP)  # THEN position
-
-✅ CORRECT (Absolute positioning - safest):
-    obj1 = Circle().move_to([0, 2, 0])
-    obj2 = Square().move_to([0, 0, 0])
-    obj3 = Rectangle().move_to([0, -2, 0])
-    # No relative positioning = no crashes
-
-═══════════════════════════════════════════════════════════════════════════════
-✅ COMPLETE WORKING EXAMPLE:
-═══════════════════════════════════════════════════════════════════════════════
-
-<manim>
-from manim import *
-
-class GravityDemo(Scene):
-    def construct(self):
-        self.camera.background_color = "#0f0f0f"
-        
-        # === STEP 1: Create ALL objects ===
-        title = Text("Newton's Law", font="sans-serif", color=WHITE, font_size=48)
-        
-        earth = Circle(radius=0.8, color=BLUE, fill_opacity=0.7)
-        moon = Circle(radius=0.3, color=GRAY, fill_opacity=0.7)
-        
-        eq = MathTex(r"F = G\\frac{{{{m_1 m_2}}}}{{{{r^2}}}}", color=GREEN, font_size=40)
-        
-        # === STEP 2: Position (all exist - SAFE) ===
-        title.to_edge(UP)
-        
-        earth.move_to([-2, 0, 0])  # Absolute
-        moon.move_to([2, 0, 0])    # Absolute
-        
-        eq.next_to(earth, DOWN, buff=1)  # Relative (earth exists)
-        
-        # === STEP 3: Animate ===
-        self.play(Write(title), run_time=2)
-        self.wait(1)
-        
-        self.play(Create(earth), Create(moon), run_time=2)
-        self.wait(1)
-        
-        arrow = Arrow(earth.get_right(), moon.get_left(), color=RED)
-        self.play(Create(arrow), Write(eq), run_time=3)
         self.wait(2)
-        
-        self.play(
-            FadeOut(title),
-            FadeOut(earth),
-            FadeOut(moon),
-            FadeOut(arrow),
-            FadeOut(eq),
-            run_time=2
-        )
-
 </manim>
+"""
 
-═══════════════════════════════════════════════════════════════════════════════
-📋 MANDATORY CHECKLIST (Verify EVERY item):
-═══════════════════════════════════════════════════════════════════════════════
+    def execute(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
 
-Before generating code:
-  ☐ All positioning methods are from the VALID list above
-  ☐ No empty VGroups followed by .arrange() or .next_to()
-  ☐ All Text objects have font="sans-serif"
-  ☐ All MathTex have 4 braces: r"F_{{{{n}}}}"
-  ☐ VGroup created WITH objects (not empty)
-  ☐ Objects created BEFORE positioning on them
-  ☐ No .to_center(), .center(), or similar invalid methods
-  ☐ All animations use valid method names
-  ☐ rate_func is smooth, linear, rush_into, or rush_from
-  ☐ Code wrapped in <manim>...</manim>
-
-═══════════════════════════════════════════════════════════════════════════════
-🚫 ABSOLUTE PROHIBITIONS:
-═══════════════════════════════════════════════════════════════════════════════
-
-NEVER use these (they CRASH):
-  ❌ .to_center()
-  ❌ .center()
-  ❌ .center_on_screen()
-  ❌ .to_origin()
-  ❌ .get_center_point()
-  ❌ .get_part_by_text()
-  ❌ .get_parts_by_text()
-  ❌ fill_opacity= (use set_fill instead)
-  ❌ stroke_width= (use set_stroke instead)
-  ❌ ease_in_out_quad (use smooth)
-  ❌ Empty VGroup().arrange()
-  ❌ Text without font="sans-serif"
-  ❌ Single braces in LaTeX
-  ❌ </manim> inside code
-
-═══════════════════════════════════════════════════════════════════════════════
-
-**OUTPUT**: Generate ONLY the Manim code in <manim> tags. No explanations.
-Follow the checklist above EXACTLY - every item matters."""
-
-    def _call_llm(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> str:
-        prompt = f"{system_prompt}\n\nUser: {user_message}"
-        for attempt in range(max_retries):
-            try:
-                response = self.gemini_model.generate_content(
-                    prompt,
-                    generation_config={"temperature": temperature}
-                )
-                return response.text.strip()
-            except Exception as e:
-                self.logger.warning(f"Gemini API error on attempt {attempt+1}: {e}")
-        raise ValueError("Failed to get valid response after retries")
-
-    def _call_llm_structured(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> Dict:
-        prompt = f"{system_prompt}\n\nUser: {user_message}"
-        for attempt in range(max_retries):
-            try:
-                response = self.gemini_model.generate_content(
-                    prompt,
-                    generation_config={"temperature": temperature}
-                )
-                response_text = response.text.strip()
-                
-                # Remove code fences
-                if response_text.startswith('```json'):
-                    response_text = response_text[7:].strip()
-                if response_text.endswith('```'):
-                    response_text = response_text[:-3].strip()
-                
-                # Fix common LaTeX escape issues in JSON
-                # Replace single backslashes with double backslashes for LaTeX commands
-                # But be careful not to break valid JSON escapes like \n, \t, \"
-                response_text = self._fix_latex_escapes_in_json(response_text)
-                
-                return json.loads(response_text, strict=False)
-            except json.JSONDecodeError as e:
-                self.logger.warning(f"JSON parse error on attempt {attempt+1}: {e}")
-                # Log the problematic JSON for debugging
-                if attempt == max_retries - 1:
-                    self.logger.error(f"Failed JSON content (first 500 chars): {response_text[:500]}")
-            except Exception as e:
-                self.logger.warning(f"Gemini API error on attempt {attempt+1}: {e}")
-        raise ValueError("Failed to get valid JSON response after retries")
-    
-    def _fix_latex_escapes_in_json(self, text: str) -> str:
-        """Fix LaTeX escape sequences in JSON strings by escaping ALL backslashes"""
-        import re
-        
-        # Simple approach: Replace all single backslashes with double backslashes
-        # This works because:
-        # 1. LaTeX commands like \text need to be \\text in JSON
-        # 2. Valid JSON escapes like \n, \t, \" are preserved
-        # 3. Already escaped \\ becomes \\\\ which is fine
-        
-        # First, protect valid JSON escape sequences
-        # Valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
-        protected = {}
-        counter = 0
-        
-        # Protect valid JSON escapes
-        for escape in [r'\"', r'\\', r'\/', r'\b', r'\f', r'\n', r'\r', r'\t']:
-            placeholder = f"__JSON_ESCAPE_{counter}__"
-            protected[placeholder] = escape
-            text = text.replace(escape, placeholder)
-            counter += 1
-        
-        # Protect unicode escapes \uXXXX
-        text = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: f"__JSON_UNICODE_{m.group(1)}__", text)
-        
-        # Now escape all remaining single backslashes
-        text = text.replace('\\', '\\\\')
-        
-        # Restore protected sequences
-        for placeholder, original in protected.items():
-            text = text.replace(placeholder, original)
-        
-        # Restore unicode escapes
-        text = re.sub(r'__JSON_UNICODE_([0-9a-fA-F]{4})__', r'\\u\1', text)
-        
-        return text
-
-    def generate_animations(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
         start_time = time.time()
-        self.logger.info(f"Starting animation generation for concept: {concept_analysis.main_concept}")
+        self.logger.info(f"Starting animation generation for: {concept_analysis.main_concept}")
 
         try:
-            scene_plans, raw_plans = self._generate_scene_plans(concept_analysis)
+            # Step 1: Generate scene plans
+            scene_plans, response_json = self._generate_scene_plans(concept_analysis)
             self.logger.info(f"Generated {len(scene_plans)} scene plans")
 
-            plans_filepath = self._save_scene_plans(scene_plans, concept_analysis, raw_plans)
-            self.logger.info(f"Scene plans saved to: {plans_filepath}")
+            # Save scene plans for debugging
+            self._save_scene_plans(scene_plans, concept_analysis, response_json)
 
+            # Step 2: Generate Manim code for each scene
             scene_codes = self._generate_scene_codes(scene_plans)
-            self.logger.info(f"Generated {len(scene_codes)} scene codes")
+            self.logger.info(f"Generated code for {len(scene_codes)} scenes")
 
+            # Step 3: Render each scene
             render_results = self._render_scenes(scene_codes)
-            self.logger.info(f"Rendered {sum(1 for r in render_results if r.success)}/{len(render_results)} scenes successfully")
+            successful_renders = [r for r in render_results if r.success]
+            self.logger.info(f"Successfully rendered {len(successful_renders)}/{len(render_results)} scenes")
 
-            final_animation = self._concatenate_scenes(render_results)
-            total_render_time = sum(r.render_time for r in render_results if r.render_time is not None)
-            total_duration = sum(r.duration for r in render_results if r.duration is not None)
+            # Step 4: Concatenate scenes into single animation
+            if successful_renders:
+                silent_animation_path = self._concatenate_scenes(successful_renders)
+            else:
+                silent_animation_path = None
+
+            # Calculate timing
             generation_time = time.time() - start_time
+            total_render_time = sum(r.render_time or 0 for r in render_results)
 
+            # Create result
             result = AnimationResult(
-                success=final_animation is not None,
+                success=len(successful_renders) > 0,
                 concept_id=concept_analysis.main_concept.lower().replace(" ", "_"),
-                scene_count=len(scene_codes),
-                silent_animation_path=str(final_animation) if final_animation else None,
-                total_duration=total_duration if total_duration > 0 else None,
-                error_message="" if final_animation else "Failed to concatenate scenes",
+                total_duration=sum(r.duration for r in successful_renders if r.duration),
+                scene_count=len(scene_plans),
+                silent_animation_path=str(silent_animation_path) if silent_animation_path else None,
                 scene_plan=scene_plans,
                 scene_codes=scene_codes,
                 render_results=render_results,
@@ -804,7 +704,10 @@ Follow the checklist above EXACTLY - every item matters."""
             )
 
     def _generate_scene_plans(self, concept_analysis: ConceptAnalysis) -> tuple[List[ScenePlan], Dict[str, Any]]:
+        """Generate scene plans from concept analysis"""
+
         user_message = f"Analyze this STEM concept and create scene plans:\n\n{json.dumps(concept_analysis.model_dump(), indent=2)}"
+
         try:
             response_json = self._call_llm_structured(
                 system_prompt=self.SCENE_PLANNING_PROMPT,
@@ -812,216 +715,267 @@ Follow the checklist above EXACTLY - every item matters."""
                 temperature=self.config.temperature,
                 max_retries=3
             )
-            scene_plans = [ScenePlan(**plan_data) for plan_data in response_json.get("scene_plans", [])]
+
+            # Parse and validate scene plans
+            scene_plans = []
+            for plan_data in response_json.get("scene_plans", []):
+                try:
+                    scene_plan = ScenePlan(**plan_data)
+                    scene_plans.append(scene_plan)
+                except Exception as e:
+                    self.logger.warning(f"Invalid scene plan data: {e}")
+                    continue
+
             return scene_plans, response_json
+
         except Exception as e:
             self.logger.error(f"Scene planning failed: {e}")
             raise ValueError(f"Failed to generate scene plans: {e}")
 
     def _save_scene_plans(self, scene_plans: List[ScenePlan], concept_analysis: ConceptAnalysis, response_json: Dict[str, Any]) -> Path:
-        safe_name = "".join(c if c.isalnum() else "_" for c in concept_analysis.main_concept.lower())[:50]
+        """Save raw scene plans output to JSON file for debugging"""
+
+        # Generate filename from concept
+        safe_name = "".join(c if c.isalnum() else "_" for c in concept_analysis.main_concept.lower())
+        safe_name = safe_name[:50]  # Limit length
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{safe_name}_raw_scene_plans_{timestamp}.json"
+
         filepath = self.output_dir / "scene_plans" / filename
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(response_json, f, indent=2, ensure_ascii=False)
+
+        # Save raw response
+        with open(filepath, 'w') as f:
+            json.dump(response_json, f, indent=2)
+
         self.logger.info(f"Raw scene plans output saved to {filepath}")
         return filepath
 
     def _generate_scene_codes(self, scene_plans: List[ScenePlan]) -> List[ManimSceneCode]:
+        """Generate Manim code for each scene plan in parallel"""
+
         scene_codes = []
         self.logger.info(f"Starting parallel code generation for {len(scene_plans)} scenes")
 
         def generate_single_scene_code(scene_plan: ScenePlan) -> Optional[ManimSceneCode]:
+            """Generate code for a single scene"""
             try:
                 self.logger.info(f"Generating code for scene: {scene_plan.title}")
+                self.logger.debug(f"Scene ID: {scene_plan.id}, Actions count: {len(scene_plan.actions)}")
+
                 class_name = self._sanitize_class_name(scene_plan.id)
-                
-                # Convert scene_plan to dict - try model_dump() first, fallback to dict()
+                self.logger.debug(f"Sanitized class name: {class_name}")
+
+                # Log the scene plan for debugging
+                scene_plan_json = json.dumps(scene_plan.model_dump(), indent=2)
+                self.logger.debug(f"Scene plan JSON length: {len(scene_plan_json)} characters")
+                self.logger.debug(f"First action parameters: {scene_plan.actions[0].parameters if scene_plan.actions else 'N/A'}")
+
                 try:
-                    scene_plan_dict = scene_plan.model_dump()
-                except AttributeError:
-                    scene_plan_dict = scene_plan.dict()
-                
-                scene_plan_json = json.dumps(scene_plan_dict, indent=2, ensure_ascii=False)
-                formatted_prompt = self.CODE_GENERATION_PROMPT.format(
-                    scene_plan=scene_plan_json,
-                    class_name=class_name,
-                    target_duration="25-30"
-                )
+                    formatted_prompt = self.CODE_GENERATION_PROMPT.format(
+                        scene_plan=scene_plan_json,
+                        class_name=class_name,
+                        target_duration="25-30"
+                    )
+                    self.logger.debug(f"System prompt formatted successfully, length: {len(formatted_prompt)}")
+                except Exception as fmt_error:
+                    self.logger.error(f"Failed to format system prompt: {fmt_error}")
+                    self.logger.error(f"Format error type: {type(fmt_error).__name__}")
+                    raise
+
                 response = self._call_llm(
                     system_prompt=formatted_prompt,
                     user_message="Generate the Manim code for the scene plan specified above.",
                     temperature=self.config.temperature,
                     max_retries=3
                 )
+
+                self.logger.debug(f"LLM response received, length: {len(response)} characters")
+                self.logger.debug(f"Response preview: {response[:200]}...")
+
                 manim_code, extraction_method = self._extract_manim_code(response)
+                self.logger.debug(f"Code extraction method: {extraction_method}")
+
                 if manim_code:
+                    self.logger.debug(f"Extracted code length: {len(manim_code)} characters")
                     self._save_scene_code(scene_plan.id, class_name, manim_code, response)
-                    return ManimSceneCode(
+
+                    scene_code = ManimSceneCode(
                         scene_id=scene_plan.id,
                         scene_name=class_name,
                         manim_code=manim_code,
                         raw_llm_output=response,
                         extraction_method=extraction_method
                     )
+
+                    self.logger.info(f"Successfully generated code for scene: {class_name}")
+                    return scene_code
                 else:
-                    self.logger.error(f"Failed to extract Manim code for scene: {scene_plan.id}")
+                    self.logger.error(f"Failed to extract Manim code from response for scene: {scene_plan.id}")
+                    self.logger.error(f"Response contained: {response[:500]}...")
                     return None
+
             except Exception as e:
-                import traceback
                 self.logger.error(f"Code generation failed for scene {scene_plan.id}: {e}")
+                self.logger.error(f"Exception type: {type(e).__name__}")
+                self.logger.error(f"Exception details: {str(e)}")
+                import traceback
                 self.logger.error(f"Traceback: {traceback.format_exc()}")
                 return None
 
         with ThreadPoolExecutor(max_workers=min(len(scene_plans), 10)) as executor:
             future_to_plan = {executor.submit(generate_single_scene_code, plan): plan for plan in scene_plans}
+            
             for future in as_completed(future_to_plan):
-                result = future.result()
-                if result:
-                    scene_codes.append(result)
+                scene_plan = future_to_plan[future]
+                try:
+                    result = future.result()
+                    if result:
+                        scene_codes.append(result)
+                except Exception as e:
+                    self.logger.error(f"Exception in parallel code generation for {scene_plan.id}: {e}")
+
         scene_codes.sort(key=lambda x: scene_plans.index(next(p for p in scene_plans if p.id == x.scene_id)))
         self.logger.info(f"Parallel code generation complete: {len(scene_codes)}/{len(scene_plans)} succeeded")
+
         return scene_codes
 
     def _extract_manim_code(self, response: str) -> tuple[str, str]:
+        """Extract Manim code from LLM response using <manim> tags"""
+
+        # Method 1: Try to extract from <manim>...</manim> tags
         manim_pattern = r'<manim>(.*?)</manim>'
         matches = re.findall(manim_pattern, response, re.DOTALL)
+
         if matches:
-            manim_code = self._clean_manim_code(matches[0].strip())
+            # Take the first (most complete) match
+            manim_code = matches[0].strip()
+            # Clean the code by removing backticks
+            manim_code = self._clean_manim_code(manim_code)
             return manim_code, "tags"
+
+        # Method 2: Try to extract class definition if no tags found
         class_pattern = r'class\s+(\w+)\s*\(\s*Scene\s*\):.*?(?=\n\nclass|\Z)'
         matches = re.findall(class_pattern, response, re.DOTALL)
+
         if matches:
+            # Find the complete code block
             class_start = response.find(f"class {matches[0]}(")
             if class_start != -1:
+                # Find the end of this class (next class or end of response)
                 remaining = response[class_start:]
                 next_class = re.search(r'\n\nclass\s+\w+', remaining)
-                manim_code = remaining[:next_class.start()] if next_class else remaining
+                if next_class:
+                    manim_code = remaining[:next_class.start()]
+                else:
+                    manim_code = remaining
+
+                # Add imports if missing
                 if "from manim import" not in manim_code:
                     manim_code = "from manim import *\n\n" + manim_code
+
+                # Clean the code by removing backticks
                 manim_code = self._clean_manim_code(manim_code)
                 return manim_code.strip(), "parsing"
+
+        # Method 3: Last resort - try to fix common formatting issues
         if "class" in response and "def construct" in response:
+            # Basic cleanup
             cleaned = response.strip()
             if not cleaned.startswith("from"):
                 cleaned = "from manim import *\n\n" + cleaned
+
+            # Clean the code by removing backticks
             cleaned = self._clean_manim_code(cleaned)
             return cleaned, "cleanup"
+
         return "", "failed"
 
     def _clean_manim_code(self, code: str) -> str:
-        # Remove backticks
+        """Clean Manim code by removing backticks and fixing common issues"""
+
+        # Remove all backticks - this is the main issue
         code = code.replace('`', '')
-        
-        # Remove python language markers
+
+        # Fix common triple-backtick code block markers that might leave extra formatting
         code = re.sub(r'python\n', '', code, flags=re.IGNORECASE)
         code = re.sub(r'\npython', '', code, flags=re.IGNORECASE)
-        
-        # Remove code fences
+
+        # Remove any remaining markdown-style code formatting
         code = re.sub(r'^```.*\n', '', code, flags=re.MULTILINE)
         code = re.sub(r'\n```.*$', '', code, flags=re.MULTILINE)
-        
-        # Remove any stray </manim> tags that got into the code
-        code = re.sub(r'</manim>', '', code, flags=re.IGNORECASE)
-        code = re.sub(r'<manim>', '', code, flags=re.IGNORECASE)
-        
-        # Fix LaTeX single braces to double braces in MathTex/Tex strings
-        # Match r"..." or r'...' strings and fix LaTeX commands inside
-        code = self._fix_latex_in_code(code)
-        
-        # Replace problematic Unicode characters
-        code = code.replace('¬', r'\neg')  # NOT symbol
-        code = code.replace('∩', r'\cap')  # Intersection
-        code = code.replace('∪', r'\cup')  # Union
-        code = code.replace('∈', r'\in')   # Element of
-        code = code.replace('∀', r'\forall')  # For all
-        code = code.replace('∃', r'\exists')  # Exists
-        
-        # Normalize whitespace
+
+        # Clean up any double newlines that might have been created
         code = re.sub(r'\n{3,}', '\n\n', code)
+
+        # Strip leading/trailing whitespace
         code = code.strip()
-        
-        return code
-    
-    def _fix_latex_in_code(self, code: str) -> str:
-        """Fix LaTeX single braces to double braces - COMPREHENSIVE approach"""
-        
-        # Strategy: Multiple passes with different patterns to catch everything
-        max_iterations = 10  # More iterations for complex nested cases
-        
-        for iteration in range(max_iterations):
-            original = code
-            
-            # Pass 1: Fix \command{content} where content has NO braces
-            code = re.sub(
-                r'\\([a-zA-Z]+)\{([^{}]+)\}',
-                r'\\\1{{\2}}',
-                code
-            )
-            
-            # Pass 2: Fix subscripts _{content}
-            code = re.sub(r'_\{([^{}]+)\}', r'_{{\1}}', code)
-            
-            # Pass 3: Fix superscripts ^{content}
-            code = re.sub(r'\^\{([^{}]+)\}', r'^{{\1}}', code)
-            
-            # Pass 4: Fix \command{content with spaces}
-            code = re.sub(
-                r'\\([a-zA-Z]+)\{([^{}]*?)\}',
-                r'\\\1{{\2}}',
-                code
-            )
-            
-            # Pass 5: Fix nested patterns like \frac{\frac{a}{b}}{c}
-            # This will gradually double-brace from inside out
-            code = re.sub(
-                r'\\([a-zA-Z]+)\{([^{}]*)\}',
-                r'\\\1{{\2}}',
-                code
-            )
-            
-            # If nothing changed in this iteration, we're done
-            if code == original:
-                break
-        
+
+        # Log the cleaning if significant changes were made
+        original_length = len(code.replace('`', ''))
+        if original_length != len(code):
+            self.logger.debug("Applied Manim code cleaning (removed backticks and formatting)")
+
         return code
 
     def _sanitize_class_name(self, scene_id: str) -> str:
+        """Convert scene ID to valid Python class name"""
+        # Remove invalid characters and convert to PascalCase
         sanitized = re.sub(r'[^a-zA-Z0-9_]', '', scene_id)
+        # Capitalize first letter and ensure it starts with letter or underscore
         if sanitized and sanitized[0].isdigit():
             sanitized = "Scene_" + sanitized
         sanitized = sanitized.title().replace('_', '')
-        return sanitized if sanitized else "AnimationScene"
+
+        # Ensure it's not empty
+        if not sanitized:
+            sanitized = "AnimationScene"
+
+        return sanitized
 
     def _save_scene_code(self, scene_id: str, class_name: str, manim_code: str, raw_output: str) -> Path:
+        """Save generated Manim code to file"""
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{scene_id}_{class_name}_{timestamp}.py"
         filepath = self.output_dir / "scene_codes" / filename
-        with open(filepath, 'w', encoding='utf-8') as f:
+
+        # Save both the clean code and raw output for debugging
+        with open(filepath, 'w') as f:
             f.write(f"# Generated Manim code for scene: {scene_id}\n")
             f.write(f"# Class: {class_name}\n")
             f.write(f"# Generated at: {timestamp}\n\n")
             f.write(manim_code)
+
+        # Also save raw LLM output
         raw_filepath = filepath.with_suffix('.raw.txt')
-        with open(raw_filepath, 'w', encoding='utf-8') as f:
+        with open(raw_filepath, 'w') as f:
             f.write(f"# Raw LLM output for scene: {scene_id}\n")
             f.write(f"# Class: {class_name}\n")
             f.write(f"# Generated at: {timestamp}\n\n")
             f.write(raw_output)
+
         return filepath
 
     def _render_scenes(self, scene_codes: List[ManimSceneCode]) -> List[RenderResult]:
+        """Render each scene using ManimRenderer"""
+
         render_results = []
+
         for scene_code in scene_codes:
             self.logger.info(f"Rendering scene: {scene_code.scene_name}")
+
+            # Generate output filename
             output_filename = f"{scene_code.scene_id}_{scene_code.scene_name}.mp4"
+
             try:
+                # Use renderer to create the video
                 render_result = self.renderer.render(
                     manim_code=scene_code.manim_code,
                     scene_name=scene_code.scene_name,
                     output_filename=output_filename
                 )
+
+                # Convert to our RenderResult format
                 result = RenderResult(
                     scene_id=scene_code.scene_id,
                     success=render_result.success,
@@ -1031,13 +985,16 @@ Follow the checklist above EXACTLY - every item matters."""
                     resolution=render_result.resolution,
                     render_time=render_result.render_time
                 )
+
                 render_results.append(result)
+
                 if result.success:
                     self.logger.info(f"Successfully rendered: {scene_code.scene_name}")
                     self.logger.info(f"  Video path: {result.video_path}")
                     self.logger.info(f"  Duration: {result.duration}s")
                 else:
                     self.logger.error(f"Failed to render {scene_code.scene_name}: {result.error_message}")
+
             except Exception as e:
                 self.logger.error(f"Rendering failed for {scene_code.scene_name}: {e}")
                 render_results.append(RenderResult(
@@ -1045,12 +1002,17 @@ Follow the checklist above EXACTLY - every item matters."""
                     success=False,
                     error_message=str(e)
                 ))
+
         return render_results
 
     def _concatenate_scenes(self, render_results: List[RenderResult]) -> Optional[Path]:
+        """Concatenate rendered scenes into single silent animation"""
+
         if not render_results:
             self.logger.error("No render results to concatenate")
             return None
+
+        # Get video paths and convert to absolute paths
         video_paths = []
         for r in render_results:
             if r.success and r.video_path:
@@ -1061,51 +1023,81 @@ Follow the checklist above EXACTLY - every item matters."""
                     video_paths.append(video_path)
                 else:
                     self.logger.warning(f"Video path does not exist: {video_path}")
+
         if not video_paths:
             self.logger.error("No successfully rendered scenes with valid video paths to concatenate")
+            self.logger.error(f"Render results: {[(r.scene_id, r.success, r.video_path) for r in render_results]}")
             return None
+
         self.logger.info(f"Found {len(video_paths)} videos to concatenate")
+
         try:
+            # Generate output filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_filename = f"animation_{timestamp}.mp4"
             output_path = self.output_dir / "animations" / output_filename
+
+            # Ensure output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Use FFmpeg to concatenate videos
+            self.logger.info(f"Concatenating {len(video_paths)} scenes into {output_filename}")
+
+            # Create a temporary file with list of input videos (use absolute paths)
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as temp_file:
                 for video_path in video_paths:
+                    # Ensure absolute path and escape single quotes
                     abs_path = str(video_path.resolve())
                     temp_file.write(f"file '{abs_path}'\n")
+                    self.logger.debug(f"Adding to concat list: {abs_path}")
                 temp_file_path = temp_file.name
+
             try:
+                # FFmpeg concat command with absolute paths
                 cmd = [
                     "ffmpeg",
                     "-f", "concat",
                     "-safe", "0",
                     "-i", str(temp_file_path),
                     "-c", "copy",
-                    "-y",
+                    "-y",  # Overwrite output file if exists
                     str(output_path.resolve())
                 ]
+
                 self.logger.info(f"Running FFmpeg command: {' '.join(cmd)}")
+                
                 result = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,
                     timeout=120
                 )
+
                 if result.returncode == 0 and output_path.exists():
                     self.logger.info(f"Successfully concatenated animation: {output_filename}")
+                    self.logger.info(f"Final video path: {output_path}")
                     return output_path
                 else:
-                    self.logger.error(f"FFmpeg concatenation failed: {result.stderr}")
+                    self.logger.error(f"FFmpeg concatenation failed with return code {result.returncode}")
+                    self.logger.error(f"STDERR: {result.stderr}")
+                    self.logger.error(f"STDOUT: {result.stdout}")
+                    self.logger.error(f"Output path exists: {output_path.exists()}")
                     return None
+
             finally:
-                import os
-                os.unlink(temp_file_path)
+                # Clean up temporary file
+                try:
+                    import os
+                    os.unlink(temp_file_path)
+                except OSError:
+                    pass
+
         except Exception as e:
             self.logger.error(f"Scene concatenation failed: {e}")
             return None
 
     def get_generation_stats(self) -> Dict[str, Any]:
+        """Get statistics about animation generation performance"""
         return {
             "token_usage": self.get_token_usage(),
             "model_used": self.model,

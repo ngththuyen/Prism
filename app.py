@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Ứng dụng web Gradio cho Prism - Trình tạo hoạt ảnh STEM
-Giao diện đơn giản: Nhập khái niệm -> Thanh tiến trình -> Trình phát video
+Gradio web app for STEM Animation Generator
+Simple UI: Input concept -> Progress bar -> Video player
 """
 
 import gradio as gr
@@ -10,17 +10,17 @@ from pathlib import Path
 
 pipeline = Pipeline()
 
-def generate_animation(concept: str, language: str = "Vietnamese", progress=gr.Progress()):
+def generate_animation(concept: str, language: str = "English", progress=gr.Progress()):
     """
-    Hàm tạo hoạt ảnh chính được gọi bởi Gradio
+    Main generation function called by Gradio
 
     Args:
-        concept: Khái niệm STEM từ người dùng
-        language: Ngôn ngữ mục tiêu cho lời tường thuật (Vietnamese, English)
-        progress: Bộ theo dõi tiến trình Gradio
+        concept: User input STEM concept
+        language: Target language for narration (English, Chinese, Spanish, Vietnamese)
+        progress: Gradio progress tracker
 
     Returns:
-        Đường dẫn file video hoặc thông báo lỗi
+        Video file path or error message
     """
     if not concept or concept.strip() == "":
         return None
@@ -39,35 +39,35 @@ def generate_animation(concept: str, language: str = "Vietnamese", progress=gr.P
     else:
         return None
 
-with gr.Blocks(title="Prism - Trình tạo hoạt ảnh STEM") as demo:
-    gr.Markdown("# Prism")
-    gr.Markdown("Chuyển đổi các khái niệm STEM thành hoạt ảnh giáo dục có lời tường thuật")
+with gr.Blocks(title="STEMViz") as demo:
+    gr.Markdown("# STEMViz")
+    gr.Markdown("Transform STEM concepts into narrated educational animations")
     
     with gr.Row():
         with gr.Column():
             concept_input = gr.Textbox(
-                label="Nhập khái niệm STEM (bằng tiếng Việt)",
-                placeholder="Ví dụ: Giải thích thuật toán Bubble Sort, Định lý Bayes, Gradient Descent...",
+                label="Enter STEM Concept",
+                placeholder="e.g., Explain Bubble Sort, Bayes' Theorem, Gradient Descent...",
                 lines=2
             )
             language_dropdown = gr.Dropdown(
-                choices=["Vietnamese", "English"],
-                value="Vietnamese",
-                label="Ngôn ngữ giọng đọc (TTS)"
+                choices=["English", "Chinese", "Spanish", "Vietnamese"],
+                value="English",
+                label="Narration Language"
             )
-            generate_btn = gr.Button("Tạo hoạt ảnh", variant="primary")
+            generate_btn = gr.Button("Generate Animation", variant="primary")
         
     with gr.Row():
         video_output = gr.Video(
-            label="Hoạt ảnh đã tạo",
+            label="Generated Animation",
             autoplay=True
         )
     
     gr.Examples(
         examples=[
-            ["Giải thích thuật toán Bubble Sort"],
-            ["Giải thích Định lý Bayes"],
-            ["Giải thích Gradient Descent"]
+            ["Explain Bubble Sort"],
+            ["Explain Bayes' Theorem"],
+            ["Explain Gradient Descent"]
         ],
         inputs=concept_input
     )

@@ -27,8 +27,8 @@ class Pipeline:
 
         # Initialize agents
         self.concept_interpreter = ConceptInterpreterAgent(
-            api_key=settings.google_api_key,
-            base_url="",
+            api_key=settings.openrouter_api_key,
+            base_url=settings.openrouter_base_url,
             model=settings.reasoning_model,
             reasoning_tokens=settings.interpreter_reasoning_tokens,
             reasoning_effort=settings.interpreter_reasoning_effort
@@ -48,8 +48,8 @@ class Pipeline:
         )
 
         self.manim_agent = ManimAgent(
-            api_key=settings.google_api_key,
-            base_url="",
+            api_key=settings.openrouter_api_key,
+            base_url=settings.openrouter_base_url,
             model=settings.reasoning_model,
             output_dir=settings.output_dir,
             config=animation_config,
@@ -92,12 +92,13 @@ class Pipeline:
         
     def _setup_logging(self):
         """Configure logging for pipeline"""
-        from utils.logging_config import setup_logging
-        
-        # Setup logging with UTF-8 support
-        setup_logging(
-            log_file=self.config.output_dir / 'pipeline.log',
-            level=logging.INFO
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(self.config.output_dir / 'pipeline.log'),
+                logging.StreamHandler()
+            ]
         )
         self.logger = logging.getLogger("Pipeline")
     
@@ -105,7 +106,7 @@ class Pipeline:
         self,
         concept: str,
         progress_callback: Optional[Callable[[str, float], None]] = None,
-        target_language: str = "Vietnamese"
+        target_language: str = "English"
     ) -> Dict[str, Any]:
         """
         Execute the full pipeline (Phase 4: concept interpretation + animation generation + script generation + audio synthesis + video composition)
@@ -113,7 +114,7 @@ class Pipeline:
         Args:
             concept: STEM concept to process
             progress_callback: Optional callback for progress updates (message, percentage)
-            target_language: Target language for narration (Vietnamese, English)
+            target_language: Target language for narration (English, Chinese, Spanish, Vietnamese)
 
         Returns:
             Dictionary with status, results, and metadata
@@ -198,11 +199,10 @@ class Pipeline:
                         progress_callback("Video composition failed", 1.0)
                 
                 # Step 6: Cleanup temporary files after successful composition
-                # TEMPORARILY DISABLED FOR DEBUGGING
-                # if video_result and video_result.success:
-                #     if progress_callback:
-                #         progress_callback("Cleaning up temporary files...", 1.0)
-                #     self._cleanup_temp_files(animation_result, audio_result)
+                if video_result and video_result.success:
+                    if progress_callback:
+                        progress_callback("Cleaning up temporary files...", 1.0)
+                    self._cleanup_temp_files(animation_result, audio_result)
             else:
                 video_result = None
 
@@ -308,18 +308,20 @@ class Pipeline:
         
         filepath = self.config.analyses_dir / filename
         
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(analysis.model_dump(), f, indent=2, ensure_ascii=False)
+        with open(filepath, 'w') as f:
+            json.dump(analysis.model_dump(), f, indent=2)
         
         self.logger.info(f"Analysis saved to {filepath}")
         return filepath
     
+    # Phase 2-3 methods
+
     def _execute_manim_generation(self, analysis: ConceptAnalysis):
         """Phase 2: Generate Manim animations"""
         self.logger.info("Step 2: Animation Generation")
-        return self.manim_agent.generate_animations(analysis)
+        return self.manim_agent.execute(analysis)
 
-    def _execute_script_generation(self, animation_path: str, target_language: str = "Vietnamese"):
+    def _execute_script_generation(self, animation_path: str, target_language: str = "English"):
         """Phase 3: Generate narration script"""
         self.logger.info(f"Step 3: Script Generation in {target_language}")
         return self.script_generator.execute(animation_path, target_language)

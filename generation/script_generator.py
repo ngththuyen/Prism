@@ -32,7 +32,7 @@ class ScriptResult(BaseModel):
     # Metadata
     generation_time: Optional[float] = None
     video_duration: Optional[float] = None
-    model_used: str = "gemini-2.5-flash"  # 2.5 supports thinking mode
+    model_used: str = "gemini-2.5-flash"
 
 
 class ScriptGenerator:
@@ -70,12 +70,6 @@ class ScriptGenerator:
 You are an Educational Script Generator for STEM animations.
 
 **TASK**: Watch the provided silent animation video and create a synchronized narration script in SRT (SubRip) format.
-
-**IMPORTANT NOTES**:
-- The video content may be about a Vietnamese STEM concept (input was in Vietnamese)
-- You must generate narration in the TARGET LANGUAGE specified below
-- Understand the concept from the visual content, then explain it in the target language
-- Maintain technical accuracy while adapting to the target language
 
 **TARGET LANGUAGE**: {target_language}
 
@@ -187,13 +181,13 @@ Because the ratio stays constant, slope is identical anywhere on the line.
 </srt>
 """
 
-    def execute(self, video_path: str, target_language: str = "Vietnamese") -> ScriptResult:
+    def execute(self, video_path: str, target_language: str = "English") -> ScriptResult:
         """
         Generate narration script for a silent animation video
 
         Args:
             video_path: Path to the silent animation video file
-            target_language: Target language for narration (Vietnamese, English)
+            target_language: Target language for narration (English, Chinese, Spanish, Vietnamese)
 
         Returns:
             ScriptResult with generated SRT content and metadata
@@ -249,7 +243,7 @@ Because the ratio stays constant, slope is identical anywhere on the line.
                 model_used=self.model
             )
 
-    def _generate_script_with_gemini(self, video_file: Path, target_language: str = "Vietnamese", video_duration: float = 0.0) -> Optional[str]:
+    def _generate_script_with_gemini(self, video_file: Path, target_language: str = "English", video_duration: float = 0.0) -> Optional[str]:
         """Generate script using Gemini"""
 
         for attempt in range(self.max_retries):
@@ -283,16 +277,10 @@ Because the ratio stays constant, slope is identical anywhere on the line.
                     video_duration_minutes=video_duration_minutes,
                     video_duration_seconds=video_duration_seconds
                 )
-                # Generate content with thinking mode (supported by Gemini 2.5 Flash)
-                # Note: Gemini 2.0 Flash does NOT support thinking, but 2.5 Flash does
                 response = self.client.models.generate_content(
                     model=self.model,
                     contents=[uploaded_file, prompt],
-                    config=types.GenerateContentConfig(
-                        temperature=self.temperature,
-                        max_output_tokens=8192,
-                        thinking_config=types.ThinkingConfig(thinking_budget=2048)
-                    )
+                    config=types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_budget=2048))
                 )
 
                 script_content = response.text

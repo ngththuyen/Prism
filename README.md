@@ -1,14 +1,32 @@
-# Prism - Trình tạo hoạt ảnh STEM tự động
+# STEMViz
 
-**Prism** là một hệ thống AI tự động chuyển đổi các khái niệm STEM thành video hoạt ảnh giáo dục có lời tường thuật. Hệ thống sử dụng LLM để phân tích khái niệm, tạo mã Manim, render hoạt ảnh, và tổng hợp giọng nói đồng bộ.
+**AI-powered STEM concept visualizer that generates narrated educational animations using Manim, LLMs, and multimodal AI.**
 
-## Tính năng chính
+Transform complex STEM concepts into engaging, narrated video animations with just a text description. STEMViz uses a multi-agent pipeline to:
+1. Analyze and break down concepts into sub-concepts
+2. Plan and generate Manim animation code
+3. Render individual scenes and concatenate them
+4. Generate timestamped narration scripts using multimodal LLMs
+5. Synthesize natural speech audio
+6. Compose final video with synchronized narration
 
-- 🎬 **Tự động tạo hoạt ảnh**: Chuyển đổi khái niệm STEM thành hoạt ảnh Manim
-- 🗣️ **Lời tường thuật đa ngôn ngữ**: Hỗ trợ tiếng Việt và tiếng Anh
-- 🤖 **Powered by AI**: Sử dụng Gemini 2.0 Flash cho reasoning và multimodal analysis
-- 🎙️ **Text-to-Speech chất lượng cao**: Tích hợp ElevenLabs và OpenAI TTS
-- 📊 **Giao diện web thân thiện**: Gradio UI đơn giản và dễ sử dụng
+---
+
+## Features
+
+- 🎬 **Automated Animation Generation**: Convert STEM concepts to Manim animations
+- 🧠 **Multi-Agent Architecture**: Concept interpreter + Manim code generator agents
+- 🎙️ **AI Narration**: Multimodal LLM analyzes video and generates contextual narration
+- 🔊 **Text-to-Speech**: High-quality voice synthesis via ElevenLabs
+- ⚡ **Parallel Processing**: Concurrent scene code generation for faster output
+- 🎨 **Gradio Web Interface**: Simple browser-based UI for easy interaction
+- 🧹 **Auto Cleanup**: Removes temporary files after successful generation
+
+---
+
+## Demo
+
+https://github.com/qnguyen3/STEMViz
 
 ---
 
@@ -22,12 +40,44 @@
 - LaTeX (for mathematical notation in animations)
 
 **API Keys Required:**
-- [Google AI API Key](https://aistudio.google.com/app/apikey) (for LLM reasoning and multimodal video analysis)
-- [ElevenLabs API Key](https://elevenlabs.io/) or [OpenAI API Key](https://platform.openai.com/) (for text-to-speech)
+- [OpenRouter API Key](https://openrouter.ai/) (for LLM reasoning)
+- [Google AI API Key](https://aistudio.google.com/app/apikey) (for multimodal video analysis)
+- [ElevenLabs API Key](https://elevenlabs.io/) (for text-to-speech)
 
 ---
 
 ### Step 1: Install System Dependencies
+
+#### macOS
+```bash
+# Install Homebrew if not already installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install FFmpeg
+brew install ffmpeg
+
+# Install LaTeX (required for math rendering in Manim)
+brew install --cask mactex
+
+# After LaTeX installation, update PATH (add to ~/.zshrc or ~/.bash_profile)
+export PATH="/Library/TeX/texbin:$PATH"
+source ~/.zshrc  # or source ~/.bash_profile
+```
+
+#### Linux (Ubuntu/Debian)
+```bash
+# Update package list
+sudo apt update
+
+# Install FFmpeg
+sudo apt install ffmpeg
+
+# Install LaTeX (full TeX Live distribution)
+sudo apt install texlive-full
+
+# Alternative: minimal LaTeX install (faster, but may miss some packages)
+# sudo apt install texlive texlive-latex-extra texlive-fonts-extra texlive-science
+```
 
 #### Windows
 ```powershell
@@ -54,8 +104,8 @@ latex --version
 ### Step 2: Clone Repository
 
 ```bash
-git clone https://github.com/qnguyen3/Prism.git
-cd Prism
+git clone https://github.com/qnguyen3/STEMViz.git
+cd STEMViz
 ```
 
 ---
@@ -111,19 +161,15 @@ pip install -r requirements.txt
 
 2. Edit `.env` and add your API keys:
    ```bash
-   # Required
+   OPENROUTER_API_KEY=your_openrouter_key_here
    GOOGLE_API_KEY=your_google_ai_key_here
-   
-   # TTS Provider (choose one)
-   TTS_PROVIDER=openai  # or "elevenlabs"
-   OPENAI_API_KEY=your_openai_key_here
-   # ELEVENLABS_API_KEY=your_elevenlabs_key_here
+   ELEVENLABS_API_KEY=your_elevenlabs_key_here
    ```
 
 **Where to get API keys:**
+- **OpenRouter**: Sign up at [openrouter.ai](https://openrouter.ai/) and create an API key
 - **Google AI**: Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-- **OpenAI**: Sign up at [platform.openai.com](https://platform.openai.com/) and create an API key
-- **ElevenLabs** (optional): Sign up at [elevenlabs.io](https://elevenlabs.io/) and get your API key from the profile page
+- **ElevenLabs**: Sign up at [elevenlabs.io](https://elevenlabs.io/) and get your API key from the profile page
 
 ---
 
@@ -154,34 +200,20 @@ The Gradio interface will open in your browser at `http://127.0.0.1:7860`
 
 ### Using the Interface
 
-1. **Nhập khái niệm STEM bằng tiếng Việt** (e.g., "Giải thích thuật toán QuickSort", "Giải thích gradient descent", "Giải thích định lý Bayes")
-2. **Chọn ngôn ngữ giọng đọc (TTS)**: Vietnamese hoặc English
-   - Input luôn là tiếng Việt
-   - Giọng đọc có thể chọn tiếng Việt hoặc tiếng Anh tùy người dùng
-3. **Click "Tạo hoạt ảnh"**
-4. **Chờ hệ thống xử lý** (thường mất 3-5 phút tùy độ phức tạp)
-5. **Xem video đã tạo** với lời tường thuật đồng bộ
+1. **Enter a STEM concept** in the text box (e.g., "Explain QuickSort algorithm", "Demonstrate gradient descent", "Show Bayes' theorem")
+2. **Click "Generate Animation"**
+3. **Wait for the pipeline** to complete (typically 3-5 minutes depending on complexity)
+4. **Watch the generated video** with synchronized narration
 
 ### Example Prompts
 
-**Ví dụ prompt (luôn nhập bằng tiếng Việt):**
 ```
-- Giải thích thuật toán bubble sort
-- Giải thích gradient descent
-- Giải thích định lý Bayes với ví dụ chẩn đoán y tế
-- Giải thích backpropagation trong mạng neural
-- Trực quan hóa biến đổi Fourier
-- Giải thích định lý giới hạn trung tâm
-- Giải thích cấu trúc dữ liệu cây nhị phân
-- Giải thích thuật toán QuickSort
-- Giải thích định lý Pythagoras
-- Giải thích chuỗi Fibonacci
-```
-
-**Lưu ý**: 
-- ✅ Input luôn bằng tiếng Việt
-- ✅ Có thể chọn giọng đọc tiếng Việt hoặc tiếng Anh
-- ✅ Hệ thống tự động hiểu và tạo hoạt ảnh phù hợp
+- Explain bubble sort algorithm
+- Demonstrate gradient descent optimization
+- Show Bayes' theorem with a medical diagnosis example
+- Explain how backpropagation works in neural networks
+- Visualize the Fourier transform
+- Demonstrate the central limit theorem
 ```
 
 ---
@@ -211,8 +243,9 @@ Display in Gradio
 - **UI**: Gradio
 - **Animation**: Manim Community Edition
 - **LLMs**: 
-  - Reasoning & Multimodal: Gemini 2.0 Flash
-- **TTS**: OpenAI TTS hoặc ElevenLabs
+  - Reasoning: Claude Sonnet 4.5 via OpenRouter
+  - Multimodal: Gemini 2.5 Flash
+- **TTS**: ElevenLabs
 - **Media Processing**: FFmpeg
 
 ---
@@ -221,12 +254,10 @@ Display in Gradio
 
 Edit `config.py` to customize:
 
-- **Animation quality**: `manim_quality` (l, m, h, p, k - từ thấp đến 4K)
-- **LLM models**: `reasoning_model`, `multimodal_model` (Gemini models)
-- **TTS provider**: `tts_provider` (openai hoặc elevenlabs)
-- **TTS settings**: Voice ID, stability, similarity boost (cho ElevenLabs)
+- **Animation quality**: `manim_quality` (480p15, 720p30, 1080p60, 1440p60)
+- **LLM models**: `reasoning_model`, `multimodal_model`
+- **TTS settings**: `tts_voice_id`, `tts_stability`, `tts_similarity_boost`
 - **Video settings**: `video_codec`, `video_crf`, `audio_bitrate`
-- **Language**: `target_language` (Vietnamese hoặc English)
 - **Timeouts and retries**: Various `*_timeout` and `*_max_retries` settings
 
 ---
@@ -244,3 +275,139 @@ output/
 │   └── segments/   # Individual audio segments (cleaned up after success)
 └── final/          # Final videos with narration ✅ (KEPT)
 ```
+
+**Note:** Temporary files are automatically cleaned up after successful video generation. Only final videos and scripts are preserved.
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**1. "LaTeX not found" error**
+```bash
+# Verify LaTeX installation
+latex --version
+
+# macOS: Ensure PATH includes LaTeX
+export PATH="/Library/TeX/texbin:$PATH"
+
+# Linux: Reinstall TeX Live
+sudo apt install texlive-full
+```
+
+**2. "FFmpeg not found" error**
+```bash
+# Verify FFmpeg installation
+ffmpeg -version
+
+# Reinstall if needed (macOS)
+brew reinstall ffmpeg
+
+# Linux
+sudo apt reinstall ffmpeg
+```
+
+**3. "Manim command not found"**
+```bash
+# Ensure virtual environment is activated
+source .venv/bin/activate  # macOS/Linux
+.venv\Scripts\activate     # Windows
+
+# Reinstall Manim
+uv pip install --force-reinstall manim
+```
+
+**4. API Key errors**
+- Verify `.env` file exists and contains valid API keys
+- Check API key quotas/limits on respective platforms
+- Ensure no extra spaces or quotes around API keys in `.env`
+
+**5. Out of memory errors**
+- Reduce animation quality in `config.py`: `manim_quality = "720p30"`
+- Reduce `manim_max_scene_duration` to simplify scenes
+- Close other applications to free up RAM
+
+**6. Slow generation**
+- First run is slower due to LaTeX package downloads
+- Subsequent runs are faster as packages are cached
+- Complex concepts naturally take longer (3-5 minutes average)
+
+---
+
+## Development
+
+### Project Structure
+
+```
+STEMViz/
+├── agents/                  # AI agents
+│   ├── concept_interpreter.py   # Analyzes and decomposes STEM concepts
+│   ├── manim_agent.py            # Generates and renders Manim animations
+│   └── manim_models.py           # Data models for animation pipeline
+├── generation/              # Content generation
+│   ├── script_generator.py       # Multimodal narration generation
+│   ├── audio_synthesizer.py      # TTS audio synthesis
+│   └── video_compositor.py       # Final video composition
+├── rendering/               # Animation rendering
+│   └── manim_renderer.py         # Manim code execution
+├── utils/                   # Utilities
+│   └── validators.py             # Input validation
+├── config.py                # Centralized configuration
+├── pipeline.py              # Main orchestration pipeline
+├── app.py                   # Gradio web interface
+└── requirements.txt         # Python dependencies
+```
+
+---
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## License
+
+This project is licensed under a non-commercial License - see the LICENSE file for details.
+
+---
+
+## Acknowledgments
+
+- **Manim Community**: For the amazing mathematical animation engine
+- **3Blue1Brown**: For inspiring educational math visualizations
+- **Anthropic, Google, ElevenLabs**: For powerful AI APIs
+
+---
+
+## Citation
+
+If you use STEMViz in your research or project, please cite:
+
+```bibtex
+@software{stemviz2025,
+  author = {Nguyen, Quan},
+  title = {STEMViz: AI-Powered STEM Concept Visualizer},
+  year = {2025},
+  url = {https://github.com/qnguyen3/STEMViz}
+}
+```
+
+---
+
+## Contact
+
+**Quan Nguyen** - [@qnguyen3](https://github.com/qnguyen3)
+
+Project Link: [https://github.com/qnguyen3/STEMViz](https://github.com/qnguyen3/STEMViz)
+
+---
+
+**⭐ Star this repo if you find it useful!**

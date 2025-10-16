@@ -7,17 +7,20 @@ from typing import Optional, Any
 
 class Settings(BaseSettings):
     # API Keys
+    openrouter_api_key: str
     google_api_key: str
     elevenlabs_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
 
-    # Model Selection (Gemini model IDs)
-    # Note: gemini-2.5-flash supports thinking mode, 2.0-flash does not
-    reasoning_model: str = "gemini-2.5-flash"
-    multimodal_model: str = "gemini-2.5-flash"
+    # OpenRouter Configuration
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+
+    # Model Selection (OpenRouter model IDs)
+    reasoning_model: str = "anthropic/claude-sonnet-4.5"
+    multimodal_model: str = "gemini-2.5-pro"
 
     # TTS Provider Selection
-    tts_provider: str = "elevenlabs"  # Options: "elevenlabs", "openai"
+    tts_provider: str = "elevenlabs"  # "elevenlabs", "openai"
 
     # ElevenLabs Settings (used when tts_provider="elevenlabs")
     elevenlabs_voice_id: str = "Qggl4b0xRMiqOwhPtVWT"
@@ -73,41 +76,46 @@ class Settings(BaseSettings):
     def generation_dir(self) -> Path:
         return self.output_dir / "generation"
 
-    # OLD Manim Settings
-    #manim_quality: str = "p"  # Production quality (1080p60)
-    #manim_background_color: str = "#0f0f0f"
-    #manim_frame_rate: int = 60
-    #manim_render_timeout: int = 300  # seconds
-    #manim_max_retries: int = 3
-    #manim_max_scene_duration: float = 30.0  # seconds
-    #manim_total_video_duration_target: float = 120.0  # seconds
-    
     # Manim Settings
-    manim_quality: str = "l"  # Production quality (1080p60)
+    manim_quality: str = "p"  # Production quality (1080p60)
     manim_background_color: str = "#0f0f0f"
-    manim_frame_rate: int = 30
-    manim_render_timeout: int = 120  # seconds
-    manim_max_retries: int = 2
-    manim_max_scene_duration: float = 20.0  # seconds
+    manim_frame_rate: int = 60
+    manim_render_timeout: int = 300  # seconds
+    manim_max_retries: int = 3
+    manim_max_scene_duration: float = 30.0  # seconds
     manim_total_video_duration_target: float = 120.0  # seconds
+    
+    
+    ### NOTE: For Anthropic models (Sonnet 4/4.5, Opus 4/4.1), use only either reasoning tokens or reasoning effort, if both are used, reasoning effort will be prioritized
+    ### For OpenAI models (GPT-5, o3, o4-mini), only reasoning effort can trigger reasoning
 
-    # Reasoning Settings (Ignored for Gemini)
-    # Note: For Anthropic models, use either reasoning tokens or effort (effort prioritized if both set)
-    # For Gemini, these are ignored; adjust prompts if reasoning control is needed
+    # Reasoning setting (Anthropic Style)
     interpreter_reasoning_tokens: Optional[int] = 2048
     animation_reasoning_tokens: Optional[int] = 4096
+    
+    # Reasoning setting (Anthropic Style)
     interpreter_reasoning_effort: Optional[str] = "low"
     animation_reasoning_effort: Optional[str] = "medium"
 
-    # Animation Generation Setting
-    animation_temperature: float = 0
+    # Animation generation settings
+    animation_temperature: float = 0.5
     animation_max_retries_per_scene: int = 3
     animation_enable_simplification: bool = True
 
     # Script Generation Settings
-    script_generation_temperature: float = 0
+    script_generation_temperature: float = 0.5
     script_generation_max_retries: int = 3
     script_generation_timeout: int = 180  # seconds
+
+    # Audio Synthesis Settings
+    tts_voice_id: str = "Qggl4b0xRMiqOwhPtVWT"
+    tts_model_id: str = "eleven_v3"
+    tts_stability: float = 0.75
+    tts_similarity_boost: float = 0.75
+    tts_style: float = 0.0
+    tts_use_speaker_boost: bool = True
+    tts_max_retries: int = 3
+    tts_timeout: int = 120  # seconds
 
     # Video Settings
     video_codec: str = "libx264"
@@ -122,7 +130,7 @@ class Settings(BaseSettings):
     subtitle_font_color: str = "white"
     subtitle_background: bool = True
     subtitle_background_opacity: float = 0.5
-    subtitle_position: str = "bottom"  # Options: top, center, bottom
+    subtitle_position: str = "bottom"  # top, center, bottom
 
     # Video Composition Settings
     video_composition_max_retries: int = 3
@@ -133,15 +141,19 @@ class Settings(BaseSettings):
     llm_timeout: int = 120  # seconds
 
     # Language Settings
-    target_language: str = "Vietnamese"  # Supported: Vietnamese, English
+    target_language: str = "English"  # Supported: English, Chinese, Spanish, Vietnamese
 
     @validator('elevenlabs_api_key', 'openai_api_key', pre=True)
     def validate_tts_keys(cls, v, values):
+        # Check if this is the last key being validated
         if 'elevenlabs_api_key' in values and 'openai_api_key' in values:
             elevenlabs_key = values['elevenlabs_api_key']
             openai_key = values['openai_api_key']
+
+            # If both are None or empty, raise an error
             if (not elevenlabs_key or elevenlabs_key.strip() == '') and (not openai_key or openai_key.strip() == ''):
                 raise ValueError('At least one TTS API key (elevenlabs_api_key or openai_api_key) must be provided')
+
         return v
 
     class Config:
@@ -165,6 +177,9 @@ class Settings(BaseSettings):
             dir_path.mkdir(parents=True, exist_ok=True)
 
 
+# Initialize settings and create directories
+# Note: Settings will be initialized with environment variables
+# Use Settings() in your code to get the configuration
 def get_settings():
     """Get settings instance with environment variables"""
     return Settings()
