@@ -74,12 +74,12 @@ class Settings(BaseSettings):
         return self.output_dir / "generation"
 
     # Manim Settings
-    manim_quality: str = "p"  # Production quality (1080p60)
+    manim_quality: str = "l"  # Production quality (1080p60)
     manim_background_color: str = "#0f0f0f"
-    manim_frame_rate: int = 60
-    manim_render_timeout: int = 300  # seconds
-    manim_max_retries: int = 3
-    manim_max_scene_duration: float = 30.0  # seconds
+    manim_frame_rate: int = 30
+    manim_render_timeout: int = 120  # seconds
+    manim_max_retries: int = 2
+    manim_max_scene_duration: float = 20.0  # seconds
     manim_total_video_duration_target: float = 120.0  # seconds
 
     # Reasoning Settings (Ignored for Gemini)
