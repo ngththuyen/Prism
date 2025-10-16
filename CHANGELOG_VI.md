@@ -2,6 +2,14 @@
 
 ## Phiên bản mới nhất - Cập nhật ngày [Hôm nay]
 
+### 🐛 Hotfix: Sửa lỗi encoding với input tiếng Việt có dấu
+
+**Lỗi đã sửa:**
+- ✅ **Lỗi encoding**: Sửa lỗi "'charmap' codec can't encode characters" khi lưu file với tên tiếng Việt có dấu
+- ✅ **File agents/manim_agent.py**: Thêm `encoding='utf-8'` và `ensure_ascii=False` cho tất cả lệnh `open()`
+- ✅ **File pipeline.py**: Thêm `encoding='utf-8'` và `ensure_ascii=False` khi lưu analysis
+- ✅ **Hỗ trợ Unicode đầy đủ**: Giờ có thể nhập bất kỳ khái niệm tiếng Việt nào có dấu
+
 ### 🎯 Cập nhật quan trọng: Input tiếng Việt, TTS tùy chọn
 
 **Thay đổi chính:**

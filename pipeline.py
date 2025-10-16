@@ -308,8 +308,8 @@ class Pipeline:
         
         filepath = self.config.analyses_dir / filename
         
-        with open(filepath, 'w') as f:
-            json.dump(analysis.model_dump(), f, indent=2)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(analysis.model_dump(), f, indent=2, ensure_ascii=False)
         
         self.logger.info(f"Analysis saved to {filepath}")
         return filepath

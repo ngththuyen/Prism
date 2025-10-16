@@ -614,8 +614,8 @@ class BayesIntro(Scene):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{safe_name}_raw_scene_plans_{timestamp}.json"
         filepath = self.output_dir / "scene_plans" / filename
-        with open(filepath, 'w') as f:
-            json.dump(response_json, f, indent=2)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(response_json, f, indent=2, ensure_ascii=False)
         self.logger.info(f"Raw scene plans output saved to {filepath}")
         return filepath
 
@@ -713,13 +713,13 @@ class BayesIntro(Scene):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{scene_id}_{class_name}_{timestamp}.py"
         filepath = self.output_dir / "scene_codes" / filename
-        with open(filepath, 'w') as f:
+        with open(filepath, 'w', encoding='utf-8') as f:
             f.write(f"# Generated Manim code for scene: {scene_id}\n")
             f.write(f"# Class: {class_name}\n")
             f.write(f"# Generated at: {timestamp}\n\n")
             f.write(manim_code)
         raw_filepath = filepath.with_suffix('.raw.txt')
-        with open(raw_filepath, 'w') as f:
+        with open(raw_filepath, 'w', encoding='utf-8') as f:
             f.write(f"# Raw LLM output for scene: {scene_id}\n")
             f.write(f"# Class: {class_name}\n")
             f.write(f"# Generated at: {timestamp}\n\n")
