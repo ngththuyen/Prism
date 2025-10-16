@@ -639,7 +639,14 @@ class BayesIntro(Scene):
             try:
                 self.logger.info(f"Generating code for scene: {scene_plan.title}")
                 class_name = self._sanitize_class_name(scene_plan.id)
-                scene_plan_json = json.dumps(scene_plan.model_dump(), indent=2)
+                
+                # Convert scene_plan to dict - try model_dump() first, fallback to dict()
+                try:
+                    scene_plan_dict = scene_plan.model_dump()
+                except AttributeError:
+                    scene_plan_dict = scene_plan.dict()
+                
+                scene_plan_json = json.dumps(scene_plan_dict, indent=2, ensure_ascii=False)
                 formatted_prompt = self.CODE_GENERATION_PROMPT.format(
                     scene_plan=scene_plan_json,
                     class_name=class_name,
@@ -665,7 +672,9 @@ class BayesIntro(Scene):
                     self.logger.error(f"Failed to extract Manim code for scene: {scene_plan.id}")
                     return None
             except Exception as e:
+                import traceback
                 self.logger.error(f"Code generation failed for scene {scene_plan.id}: {e}")
+                self.logger.error(f"Traceback: {traceback.format_exc()}")
                 return None
 
         with ThreadPoolExecutor(max_workers=min(len(scene_plans), 10)) as executor:
