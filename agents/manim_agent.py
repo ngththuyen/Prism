@@ -477,19 +477,77 @@ Return ONLY valid JSON matching this exact structure:
    - Insert `self.wait(duration)` after significant actions for narration pauses.
    - Ensure smooth transitions with easing (`ease_in_out` where specified).
 
-6. **Error Handling & Common Mistakes to AVOID**:
-   - ❌ DO NOT use `ease_in_out_quad` - use `smooth` instead
-   - ❌ DO NOT use external image files (e.g., `ImageMobject("file.png")`) - they don't exist
-   - ❌ DO NOT use single-character subscripts in LaTeX like `F_0` - use `F_{{0}}` with double braces
-   - ❌ DO NOT use `fill_opacity` parameter in `set_fill()` - use `set_fill(color, opacity)` instead
-   - ❌ DO NOT include `</manim>` tag inside the code - only wrap the entire code block
-   - ✅ Always wrap subscripts/superscripts in double braces: `F_{{n}}`, `x_{{1}}`, `a^{{2}}`
-   - ✅ Use only built-in Manim objects: `Circle`, `Square`, `Dot`, `Line`, `Text`, `MathTex`, `Tex`
-   - ✅ For rate_func, use: `smooth`, `linear`, `rush_into`, `rush_from`
-   - ✅ For fill: Use `.set_fill(color, opacity)` NOT `.set_fill(color, fill_opacity=opacity)`
-   - ✅ For stroke: Use `.set_stroke(color, width)` NOT `.set_stroke(color, stroke_width=width)`
-   - Ensure code is syntactically correct and runnable in Manim.
-   - If an action's `parameters` are unclear, use sensible defaults (e.g., white color, smooth easing).
+6. **CRITICAL RULES - Must Follow Exactly**:
+
+   **❌ FORBIDDEN - These Will Cause Errors:**
+   - `ease_in_out_quad` → Use `smooth` or `linear`
+   - `ImageMobject("file.png")` → External files don't exist
+   - `obj.set_fill(color, fill_opacity=0.5)` → Use `obj.set_fill(color, 0.5)`
+   - `obj.set_stroke(color, stroke_width=2)` → Use `obj.set_stroke(color, 2)`
+   - `text.get_part_by_text("word")` → Method doesn't exist
+   - `text.get_parts_by_text()` → Method doesn't exist
+   - LaTeX single braces: `F_{{n-1}}` → Must be `F_{{{{n-1}}}}`
+   - `</manim>` inside code → Only at the very end
+
+   **✅ CORRECT PATTERNS - Use These:**
+   
+   **LaTeX (CRITICAL - Double ALL Braces):**
+   ```python
+   # ❌ WRONG:
+   MathTex(r"F_{{n}} = F_{{n-1}} + F_{{n-2}}")
+   MathTex(r"\\frac{{a}}{{b}}")
+   
+   # ✅ CORRECT:
+   MathTex(r"F_{{{{n}}}} = F_{{{{n-1}}}} + F_{{{{n-2}}}}")
+   MathTex(r"\\frac{{{{a}}}}{{{{b}}}}")
+   ```
+   
+   **Styling Objects:**
+   ```python
+   # ✅ CORRECT:
+   circle = Circle()
+   circle.set_fill(BLUE, 0.5)  # color, opacity
+   circle.set_stroke(WHITE, 2)  # color, width
+   ```
+   
+   **Highlighting Text:**
+   ```python
+   # ❌ WRONG:
+   part = text.get_part_by_text("word")
+   
+   # ✅ CORRECT Option 1 - Highlight entire object:
+   self.play(Indicate(text, color=RED))
+   
+   # ✅ CORRECT Option 2 - Separate text objects:
+   line1 = Text("Apple: 2 votes")
+   line2 = Text("Banana: 1 vote")
+   votes = VGroup(line1, line2).arrange(DOWN)
+   self.play(Indicate(line1, color=RED))
+   ```
+   
+   **Rate Functions:**
+   ```python
+   # ✅ CORRECT:
+   self.play(Write(text), rate_func=smooth)
+   self.play(FadeIn(obj), rate_func=linear)
+   self.play(Transform(a, b), rate_func=rush_into)
+   ```
+   
+   **Valid Manim Objects:**
+   - Shapes: `Circle`, `Square`, `Rectangle`, `Triangle`, `Polygon`, `Ellipse`
+   - Lines: `Line`, `Arrow`, `Vector`, `DashedLine`, `CurvedArrow`
+   - Text: `Text`, `MathTex`, `Tex`, `MarkupText`
+   - Groups: `VGroup`, `VDict`
+   - Graphs: `Axes`, `NumberPlane`, `BarChart`
+   - 3D: `Sphere`, `Cube`, `Cylinder` (but prefer 2D)
+   
+   **Animation Methods:**
+   - Create: `Create`, `Write`, `DrawBorderThenFill`
+   - Transform: `Transform`, `ReplacementTransform`, `TransformMatchingShapes`
+   - Fade: `FadeIn`, `FadeOut`, `FadeToColor`
+   - Move: `obj.animate.move_to()`, `obj.animate.shift()`
+   - Highlight: `Indicate`, `Circumscribe`, `Flash`, `ShowPassingFlash`
+   - Scale: `obj.animate.scale()`, `GrowFromCenter`, `ShrinkToCenter`
 
 **OUTPUT FORMAT**:
 Return ONLY the Manim code wrapped in <manim> tags. DO NOT include </manim> inside the code:
@@ -504,26 +562,96 @@ class {class_name}(Scene):
 
 **CRITICAL**: The closing </manim> tag should ONLY appear at the very end, after all Python code is complete.
 
-**EXAMPLE** for a scene plan (e.g., Bayes' Theorem introduction):
+**COMPLETE EXAMPLE** - Study this carefully:
 <manim>
 from manim import *
 
 class BayesIntro(Scene):
     def construct(self):
-        title = Text("Bayes' Theorem", color=WHITE).to_edge(UP)
+        # Set background
+        self.camera.background_color = "#0f0f0f"
+        
+        # 1. Title
+        title = Text("Bayes' Theorem", color=WHITE, font_size=48)
+        title.to_edge(UP)
         self.play(FadeIn(title), run_time=2)
         self.wait(2)
-        scenario = Text("Medical test: Disease prevalence 1%, Sensitivity 90%, Specificity 95%", color=WHITE, font_size=24).shift(UP*2)
-        self.play(Write(scenario), run_time=5, rate_func=smooth)
+        
+        # 2. Scenario description
+        scenario = Text(
+            "Medical Test Example",
+            color="#3B82F6",
+            font_size=36
+        ).shift(UP * 2)
+        self.play(Write(scenario), run_time=3, rate_func=smooth)
         self.wait(2)
-        definitions = MathTex(r"P(D)=0.01,\ \text{{sensitivity}}=0.90,\ \text{{specificity}}=0.95", color=BLUE).shift(UP*0.5)
-        self.play(Write(definitions), run_time=6, rate_func=smooth)
+        
+        # 3. Mathematical notation (CRITICAL: Double braces!)
+        # Note: \\text{{{{word}}}} for text in math mode
+        formula = MathTex(
+            r"P(A|B) = \\frac{{{{P(B|A) \\cdot P(A)}}}}{{{{P(B)}}}}",
+            color=WHITE,
+            font_size=44
+        ).shift(UP * 0.5)
+        self.play(Write(formula), run_time=4, rate_func=smooth)
         self.wait(2)
-        population_box = Rectangle(height=3, width=4, color=BLUE, fill_opacity=0).shift(DOWN)
-        population_label = Text("Population", color=BLUE, font_size=24).next_to(population_box, UP)
-        self.play(Create(population_box), Write(population_label), run_time=6)
-        self.wait(3)
+        
+        # 4. Create visual elements
+        box = Rectangle(
+            height=3,
+            width=5,
+            color="#22C55E",
+            stroke_width=3
+        )
+        box.set_fill("#22C55E", 0.2)  # CORRECT: color, opacity
+        box.shift(DOWN * 1)
+        
+        label = Text("Prior Probability", color=WHITE, font_size=28)
+        label.next_to(box, UP, buff=0.3)
+        
+        self.play(
+            Create(box),
+            Write(label),
+            run_time=3
+        )
+        self.wait(2)
+        
+        # 5. Highlight with Indicate (on entire object)
+        self.play(Indicate(formula, color="#EF4444"), run_time=2)
+        self.wait(1)
+        
+        # 6. Transform example
+        new_formula = MathTex(
+            r"P(A|B) = 0.95",
+            color="#EF4444",
+            font_size=44
+        ).move_to(formula.get_center())
+        self.play(
+            ReplacementTransform(formula, new_formula),
+            run_time=3,
+            rate_func=smooth
+        )
+        self.wait(2)
+        
+        # 7. Cleanup
+        self.play(
+            FadeOut(title),
+            FadeOut(scenario),
+            FadeOut(new_formula),
+            FadeOut(box),
+            FadeOut(label),
+            run_time=2
+        )
+        self.wait(1)
 </manim>
+
+**KEY TAKEAWAYS FROM EXAMPLE:**
+1. Always use `self.camera.background_color = "#0f0f0f"`
+2. LaTeX: `\\frac{{{{a}}}}{{{{b}}}}` (4 braces for nested content)
+3. Styling: `obj.set_fill(color, opacity)` NOT `fill_opacity=`
+4. Highlight: `Indicate(entire_object)` NOT `get_part_by_text()`
+5. Rate func: `rate_func=smooth` NOT `rate_func=ease_in_out_quad`
+6. Always include `self.wait()` for narration pauses
 """
 
     def _call_llm(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> str:
