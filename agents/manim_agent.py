@@ -425,6 +425,89 @@ Return ONLY valid JSON matching this exact structure:
 }}
 """
 
+    CODE_GENERATION_PROMPT = """You are a Manim Code Generation Agent for an educational STEM animation system.
+
+**TASK**: Generate Manim (Python-based Mathematical Animation Engine) code to visualize a STEM concept based on a provided scene plan.
+
+**INPUT SCENE PLAN**:
+{scene_plan}
+
+**MANIM CODE GUIDELINES**:
+1. **Code Structure**:
+   - Generate a single Manim `Scene` class named `{class_name}` that inherits from `manim.Scene`.
+   - Include `from manim import *` at the top.
+   - Implement the `construct` method to define all animations for the scene.
+   - Ensure the total duration approximates {target_duration} seconds.
+
+2. **Visual Design**:
+   - Use a dark background (`#0f0f0f`) and bright elements for visibility.
+   - Use consistent color coding:
+     - Blue (#3B82F6) for known/assumed quantities.
+     - Green (#22C55E) for newly introduced concepts.
+     - Red (#EF4444) for key results or warnings.
+   - Use `Tex` for mathematical equations, `Text` for regular text, and appropriate Manim objects (e.g., `Dot`, `Line`, `Rectangle`) for diagrams.
+
+3. **Animation Actions**:
+   - Map scene plan actions to Manim methods:
+     - `write`: Use `Write` for text, equations, or diagrams.
+     - `transform`: Use `Transform` or `ReplacementTransform`.
+     - `fade_in`: Use `FadeIn`.
+     - `fade_out`: Use `FadeOut`.
+     - `move`: Use `MoveToTarget` or `ApplyMethod`.
+     - `highlight`: Use `Indicate` or `Flash`.
+     - `grow`: Use `GrowFromCenter` or `GrowFromPoint`.
+     - `shrink`: Use `ShrinkToCenter`.
+     - `wait`: Use `self.wait(duration)`.
+   - Apply easing (`Linear`, `InOutQuad`) via `rate_func` (e.g., `rate_func=ease_in_out_quad`) when specified in `parameters`.
+
+4. **Consistency**:
+   - Reuse element targets (e.g., `bayes_equation`, `population_box`) from the scene plan to maintain continuity.
+   - If `parameters` specify `from` and `to` targets for transforms, use `ReplacementTransform(from_obj, to_obj)`.
+   - Keep consistent example values (e.g., same array, probabilities) as in the scene plan.
+
+5. **Pacing**:
+   - Use durations from the scene plan (e.g., 4–5s for `write`, 2–5s for `fade_in`, 2–4s for `wait`).
+   - Insert `self.wait(duration)` after significant actions for narration pauses.
+   - Ensure smooth transitions with easing (`ease_in_out` where specified).
+
+6. **Error Handling**:
+   - Ensure code is syntactically correct and runnable in Manim.
+   - Avoid external dependencies beyond `manim`.
+   - If an action’s `parameters` are unclear, use sensible defaults (e.g., white color, linear easing).
+
+**OUTPUT FORMAT**:
+Return ONLY the Manim code wrapped in <manim> tags:
+<manim>
+from manim import *
+
+class {class_name}(Scene):
+    def construct(self):
+        # Your Manim code here
+        pass
+</manim>
+
+**EXAMPLE** for a scene plan (e.g., Bayes' Theorem introduction):
+<manim>
+from manim import *
+
+class BayesIntro(Scene):
+    def construct(self):
+        title = Text("Bayes' Theorem", color=WHITE).to_edge(UP)
+        self.play(FadeIn(title), run_time=2)
+        self.wait(2)
+        scenario = Text("Medical test: Disease prevalence 1%, Sensitivity 90%, Specificity 95%", color=WHITE, font_size=24).shift(UP*2)
+        self.play(Write(scenario), run_time=5, rate_func=ease_in_out_quad)
+        self.wait(2)
+        definitions = Tex(r"P(D)=0.01,\\ \\text{{sensitivity}}=0.90,\\ \\text{{specificity}}=0.95", color=BLUE).shift(UP*0.5)
+        self.play(Write(definitions), run_time=6, rate_func=ease_in_out_quad)
+        self.wait(2)
+        population_box = Rectangle(height=3, width=4, color=BLUE, fill_opacity=0).shift(DOWN)
+        population_label = Text("Population", color=BLUE, font_size=24).next_to(population_box, UP)
+        self.play(Create(population_box), Write(population_label), run_time=6)
+        self.wait(3)
+</manim>
+"""
+
     def _call_llm(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> str:
         prompt = f"{system_prompt}\n\nUser: {user_message}"
         for attempt in range(max_retries):
