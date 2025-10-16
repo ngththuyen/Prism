@@ -571,21 +571,39 @@ class BayesIntro(Scene):
         raise ValueError("Failed to get valid JSON response after retries")
     
     def _fix_latex_escapes_in_json(self, text: str) -> str:
-        """Fix LaTeX escape sequences in JSON strings"""
-        # Common LaTeX commands that need double backslashes
-        latex_commands = [
-            r'\text', r'\frac', r'\sum', r'\int', r'\sqrt', r'\alpha', r'\beta', 
-            r'\gamma', r'\delta', r'\theta', r'\lambda', r'\mu', r'\sigma',
-            r'\pi', r'\omega', r'\infty', r'\partial', r'\nabla', r'\times',
-            r'\cdot', r'\leq', r'\geq', r'\neq', r'\approx', r'\equiv',
-            r'\rightarrow', r'\leftarrow', r'\Rightarrow', r'\Leftarrow',
-            r'\mid', r'\quad', r'\qquad', r'\left', r'\right', r'\big', r'\Big'
-        ]
+        """Fix LaTeX escape sequences in JSON strings by escaping ALL backslashes"""
+        import re
         
-        # Replace each LaTeX command with double backslash version
-        for cmd in latex_commands:
-            # Only replace if not already escaped
-            text = text.replace(cmd, cmd.replace('\\', '\\\\'))
+        # Simple approach: Replace all single backslashes with double backslashes
+        # This works because:
+        # 1. LaTeX commands like \text need to be \\text in JSON
+        # 2. Valid JSON escapes like \n, \t, \" are preserved
+        # 3. Already escaped \\ becomes \\\\ which is fine
+        
+        # First, protect valid JSON escape sequences
+        # Valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
+        protected = {}
+        counter = 0
+        
+        # Protect valid JSON escapes
+        for escape in [r'\"', r'\\', r'\/', r'\b', r'\f', r'\n', r'\r', r'\t']:
+            placeholder = f"__JSON_ESCAPE_{counter}__"
+            protected[placeholder] = escape
+            text = text.replace(escape, placeholder)
+            counter += 1
+        
+        # Protect unicode escapes \uXXXX
+        text = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: f"__JSON_UNICODE_{m.group(1)}__", text)
+        
+        # Now escape all remaining single backslashes
+        text = text.replace('\\', '\\\\')
+        
+        # Restore protected sequences
+        for placeholder, original in protected.items():
+            text = text.replace(placeholder, original)
+        
+        # Restore unicode escapes
+        text = re.sub(r'__JSON_UNICODE_([0-9a-fA-F]{4})__', r'\\u\1', text)
         
         return text
 
