@@ -22,6 +22,11 @@ genai.configure(api_key=settings.google_api_key)
 
 
 class ManimAgent(BaseAgent):
+    """
+    Manim Agent: Transforms structured concept analysis into visual animations
+    using scene planning and Manim code generation with <manim> tag extraction.
+    """
+
     def __init__(
         self,
         api_key: str = settings.google_api_key,
@@ -50,6 +55,10 @@ class ManimAgent(BaseAgent):
         (self.output_dir / "animations").mkdir(parents=True, exist_ok=True)
         (self.output_dir / "scenes").mkdir(parents=True, exist_ok=True)
         (self.output_dir / "scene_plans").mkdir(parents=True, exist_ok=True)
+
+    def execute(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
+        """Execute the Manim animation generation for the given concept analysis"""
+        return self.generate_animations(concept_analysis)
 
     SCENE_PLANNING_PROMPT = """You are a Manim Scene Planning Agent for an educational STEM animation system.
 
