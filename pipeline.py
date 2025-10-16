@@ -92,13 +92,12 @@ class Pipeline:
         
     def _setup_logging(self):
         """Configure logging for pipeline"""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(self.config.output_dir / 'pipeline.log'),
-                logging.StreamHandler()
-            ]
+        from utils.logging_config import setup_logging
+        
+        # Setup logging with UTF-8 support
+        setup_logging(
+            log_file=self.config.output_dir / 'pipeline.log',
+            level=logging.INFO
         )
         self.logger = logging.getLogger("Pipeline")
     
