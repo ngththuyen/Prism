@@ -117,6 +117,13 @@ class ManimAgent(BaseAgent):
    - Use descriptive, stable targets (e.g., "bayes_equation", "likelihood_label", "frequency_grid") reused across scenes.
    - When transforming, specify `"parameters": {"from": "<old_target>", "to": "<new_target>"}` where helpful.
 
+8. **LaTeX Formatting (IMPORTANT)**:
+   - When specifying equations in parameters, use proper LaTeX with DOUBLE braces for subscripts/superscripts
+   - ✅ CORRECT: `"equation": "F_{{n}} = F_{{n-1}} + F_{{n-2}}"`
+   - ❌ WRONG: `"equation": "F_n = F_{n-1} + F_{n-2}"`
+   - Always escape backslashes: `\\frac`, `\\sum`, `\\int`
+   - For text in math mode: `\\text{{your text}}`
+
 **OUTPUT FORMAT**:
 Return ONLY valid JSON matching this exact structure:
 {{
@@ -458,7 +465,7 @@ Return ONLY valid JSON matching this exact structure:
      - `grow`: Use `GrowFromCenter` or `GrowFromPoint`.
      - `shrink`: Use `ShrinkToCenter`.
      - `wait`: Use `self.wait(duration)`.
-   - Apply easing (`Linear`, `InOutQuad`) via `rate_func` (e.g., `rate_func=ease_in_out_quad`) when specified in `parameters`.
+   - Apply easing via `rate_func` (e.g., `rate_func=smooth` or `rate_func=linear`) when specified in `parameters`. DO NOT use `ease_in_out_quad` - use `smooth` instead.
 
 4. **Consistency**:
    - Reuse element targets (e.g., `bayes_equation`, `population_box`) from the scene plan to maintain continuity.
@@ -470,10 +477,15 @@ Return ONLY valid JSON matching this exact structure:
    - Insert `self.wait(duration)` after significant actions for narration pauses.
    - Ensure smooth transitions with easing (`ease_in_out` where specified).
 
-6. **Error Handling**:
+6. **Error Handling & Common Mistakes to AVOID**:
+   - ❌ DO NOT use `ease_in_out_quad` - use `smooth` instead
+   - ❌ DO NOT use external image files (e.g., `ImageMobject("file.png")`) - they don't exist
+   - ❌ DO NOT use single-character subscripts in LaTeX like `F_0` - use `F_{{0}}` with double braces
+   - ✅ Always wrap subscripts/superscripts in double braces: `F_{{n}}`, `x_{{1}}`, `a^{{2}}`
+   - ✅ Use only built-in Manim objects: `Circle`, `Square`, `Dot`, `Line`, `Text`, `MathTex`, `Tex`
+   - ✅ For rate_func, use: `smooth`, `linear`, `rush_into`, `rush_from`
    - Ensure code is syntactically correct and runnable in Manim.
-   - Avoid external dependencies beyond `manim`.
-   - If an action’s `parameters` are unclear, use sensible defaults (e.g., white color, linear easing).
+   - If an action's `parameters` are unclear, use sensible defaults (e.g., white color, smooth easing).
 
 **OUTPUT FORMAT**:
 Return ONLY the Manim code wrapped in <manim> tags:
@@ -496,10 +508,10 @@ class BayesIntro(Scene):
         self.play(FadeIn(title), run_time=2)
         self.wait(2)
         scenario = Text("Medical test: Disease prevalence 1%, Sensitivity 90%, Specificity 95%", color=WHITE, font_size=24).shift(UP*2)
-        self.play(Write(scenario), run_time=5, rate_func=ease_in_out_quad)
+        self.play(Write(scenario), run_time=5, rate_func=smooth)
         self.wait(2)
-        definitions = Tex(r"P(D)=0.01,\\ \\text{{sensitivity}}=0.90,\\ \\text{{specificity}}=0.95", color=BLUE).shift(UP*0.5)
-        self.play(Write(definitions), run_time=6, rate_func=ease_in_out_quad)
+        definitions = MathTex(r"P(D)=0.01,\ \text{sensitivity}=0.90,\ \text{specificity}=0.95", color=BLUE).shift(UP*0.5)
+        self.play(Write(definitions), run_time=6, rate_func=smooth)
         self.wait(2)
         population_box = Rectangle(height=3, width=4, color=BLUE, fill_opacity=0).shift(DOWN)
         population_label = Text("Population", color=BLUE, font_size=24).next_to(population_box, UP)
