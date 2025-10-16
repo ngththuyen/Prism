@@ -510,7 +510,7 @@ class BayesIntro(Scene):
         scenario = Text("Medical test: Disease prevalence 1%, Sensitivity 90%, Specificity 95%", color=WHITE, font_size=24).shift(UP*2)
         self.play(Write(scenario), run_time=5, rate_func=smooth)
         self.wait(2)
-        definitions = MathTex(r"P(D)=0.01,\ \text{sensitivity}=0.90,\ \text{specificity}=0.95", color=BLUE).shift(UP*0.5)
+        definitions = MathTex(r"P(D)=0.01,\ \text{{sensitivity}}=0.90,\ \text{{specificity}}=0.95", color=BLUE).shift(UP*0.5)
         self.play(Write(definitions), run_time=6, rate_func=smooth)
         self.wait(2)
         population_box = Rectangle(height=3, width=4, color=BLUE, fill_opacity=0).shift(DOWN)
