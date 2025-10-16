@@ -486,6 +486,8 @@ Return ONLY valid JSON matching this exact structure:
    - `obj.set_stroke(color, stroke_width=2)` → Use `obj.set_stroke(color, 2)`
    - `text.get_part_by_text("word")` → Method doesn't exist
    - `text.get_parts_by_text()` → Method doesn't exist
+   - `obj1.next_to(obj2)` where obj2 is empty/None → Check object exists first
+   - `VGroup()` with no objects → Always add at least one object
    - LaTeX single braces: `F_{{n-1}}` → Must be `F_{{{{n-1}}}}`
    - `</manim>` inside code → Only at the very end
 
@@ -531,6 +533,28 @@ Return ONLY valid JSON matching this exact structure:
    self.play(Write(text), rate_func=smooth)
    self.play(FadeIn(obj), rate_func=linear)
    self.play(Transform(a, b), rate_func=rush_into)
+   ```
+   
+   **Positioning Objects (CRITICAL - Avoid Empty Objects):**
+   ```python
+   # ❌ WRONG - next_to() on empty VGroup:
+   group = VGroup()  # Empty!
+   label = Text("Label").next_to(group, UP)  # ERROR!
+   
+   # ✅ CORRECT - Create objects first:
+   circle = Circle()
+   label = Text("Label").next_to(circle, UP)  # Works!
+   
+   # ✅ CORRECT - Use absolute positioning:
+   title = Text("Title").to_edge(UP)
+   formula = MathTex("E=mc^2").shift(UP * 2)
+   box = Rectangle().move_to([0, -1, 0])
+   
+   # ✅ CORRECT - VGroup with objects:
+   obj1 = Circle()
+   obj2 = Square()
+   group = VGroup(obj1, obj2).arrange(RIGHT)
+   label = Text("Label").next_to(group, DOWN)  # Works!
    ```
    
    **Valid Manim Objects:**
