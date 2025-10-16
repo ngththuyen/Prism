@@ -283,10 +283,14 @@ Because the ratio stays constant, slope is identical anywhere on the line.
                     video_duration_minutes=video_duration_minutes,
                     video_duration_seconds=video_duration_seconds
                 )
+                # Generate content without thinking_config (not supported by Gemini 2.0 Flash)
                 response = self.client.models.generate_content(
                     model=self.model,
                     contents=[uploaded_file, prompt],
-                    config=types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_budget=2048))
+                    config=types.GenerateContentConfig(
+                        temperature=self.temperature,
+                        max_output_tokens=8192
+                    )
                 )
 
                 script_content = response.text

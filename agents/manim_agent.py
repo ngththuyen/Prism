@@ -768,9 +768,47 @@ class BayesIntro(Scene):
         code = re.sub(r'</manim>', '', code, flags=re.IGNORECASE)
         code = re.sub(r'<manim>', '', code, flags=re.IGNORECASE)
         
+        # Fix LaTeX single braces to double braces in MathTex/Tex strings
+        # Match r"..." or r'...' strings and fix LaTeX commands inside
+        code = self._fix_latex_in_code(code)
+        
+        # Replace problematic Unicode characters
+        code = code.replace('¬', r'\neg')  # NOT symbol
+        code = code.replace('∩', r'\cap')  # Intersection
+        code = code.replace('∪', r'\cup')  # Union
+        code = code.replace('∈', r'\in')   # Element of
+        code = code.replace('∀', r'\forall')  # For all
+        code = code.replace('∃', r'\exists')  # Exists
+        
         # Normalize whitespace
         code = re.sub(r'\n{3,}', '\n\n', code)
         code = code.strip()
+        
+        return code
+    
+    def _fix_latex_in_code(self, code: str) -> str:
+        """Fix LaTeX single braces to double braces in raw strings"""
+        # Pattern to match raw strings: r"..." or r'...'
+        def fix_latex_string(match):
+            content = match.group(0)
+            # Fix common LaTeX patterns: \text{...} -> \text{{...}}
+            # But be careful not to break already correct {{...}}
+            
+            # Fix \text{word} but not \text{{word}}
+            content = re.sub(r'\\text\{([^{}]+)\}', r'\\text{{\1}}', content)
+            
+            # Fix subscripts/superscripts: _{x} -> _{{x}}, ^{x} -> ^{{x}}
+            # But not _{{x}} or ^{{x}}
+            content = re.sub(r'_\{([^{}]+)\}', r'_{{\1}}', content)
+            content = re.sub(r'\^\{([^{}]+)\}', r'^{{\1}}', content)
+            
+            # Fix \frac{a}{b} -> \frac{{a}}{{b}}
+            content = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'\\frac{{\1}}{{\2}}', content)
+            
+            return content
+        
+        # Match raw strings in Python code
+        code = re.sub(r'r["\'].*?["\']', fix_latex_string, code, flags=re.DOTALL)
         
         return code
 
