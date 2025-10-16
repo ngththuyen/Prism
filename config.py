@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
 
     # Model Selection (Gemini model IDs)
-    reasoning_model: str = "gemini-2.0-flash"
-    multimodal_model: str = "gemini-2.0-flash"
+    # Note: gemini-2.5-flash supports thinking mode, 2.0-flash does not
+    reasoning_model: str = "gemini-2.5-flash"
+    multimodal_model: str = "gemini-2.5-flash"
 
     # TTS Provider Selection
     tts_provider: str = "elevenlabs"  # Options: "elevenlabs", "openai"

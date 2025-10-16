@@ -32,7 +32,7 @@ class ScriptResult(BaseModel):
     # Metadata
     generation_time: Optional[float] = None
     video_duration: Optional[float] = None
-    model_used: str = "gemini-2.5-flash"
+    model_used: str = "gemini-2.5-flash"  # 2.5 supports thinking mode
 
 
 class ScriptGenerator:
@@ -283,13 +283,15 @@ Because the ratio stays constant, slope is identical anywhere on the line.
                     video_duration_minutes=video_duration_minutes,
                     video_duration_seconds=video_duration_seconds
                 )
-                # Generate content without thinking_config (not supported by Gemini 2.0 Flash)
+                # Generate content with thinking mode (supported by Gemini 2.5 Flash)
+                # Note: Gemini 2.0 Flash does NOT support thinking, but 2.5 Flash does
                 response = self.client.models.generate_content(
                     model=self.model,
                     contents=[uploaded_file, prompt],
                     config=types.GenerateContentConfig(
                         temperature=self.temperature,
-                        max_output_tokens=8192
+                        max_output_tokens=8192,
+                        thinking_config=types.ThinkingConfig(thinking_budget=2048)
                     )
                 )
 
