@@ -434,12 +434,12 @@ Return ONLY valid JSON matching this exact structure:
 
     CODE_GENERATION_PROMPT = """You are a Manim Code Generation Agent. Generate ONLY working, error-free Manim code.
 
-**GOLDEN RULE: EVERY object must be created BEFORE any positioning or animation.**
+**CRITICAL: Use ONLY valid Manim methods. Invalid methods = instant crash.**
 
 **INPUT SCENE PLAN**:
 {scene_plan}
 
-**REQUIRED CODE STRUCTURE** (follow exactly):
+**REQUIRED CODE STRUCTURE**:
 ```python
 from manim import *
 
@@ -450,176 +450,158 @@ class {class_name}(Scene):
 ```
 
 ═══════════════════════════════════════════════════════════════════════════════
-🔴 CRITICAL - #1 SOURCE OF ERRORS (99% of render failures):
+🔴 CRITICAL METHODS - ONLY USE THESE (Others will CRASH):
 ═══════════════════════════════════════════════════════════════════════════════
 
-FORBIDDEN PATTERNS - THESE WILL CRASH:
+**VALID positioning methods** (ONLY these exist):
+  ✅ obj.shift(direction)              # Relative move
+  ✅ obj.move_to(point)                # Absolute position [x, y, z]
+  ✅ obj.to_edge(edge, buff=0)         # Snap to screen edge (UP, DOWN, LEFT, RIGHT)
+  ✅ obj.next_to(other, direction)     # Position relative to another object
+  ✅ obj.scale(factor)                 # Scale by factor
+  ✅ obj.set_color(color)              # Change color
+  ✅ obj.rotate(angle)                 # Rotate by angle
+  ✅ group.arrange(direction, buff=0)  # Arrange objects in group
 
-❌ PATTERN 1: Empty VGroup then positioning
+**INVALID methods** (NEVER use - will crash):
+  ❌ obj.to_center()                   # WRONG - doesn't exist
+  ❌ obj.center()                      # WRONG - doesn't exist  
+  ❌ obj.to_origin()                   # WRONG - doesn't exist
+  ❌ obj.center_on_screen()            # WRONG - doesn't exist
+  ❌ obj.get_center_point()            # WRONG - doesn't exist
+
+**CORRECT alternatives**:
+  ✅ obj.move_to([0, 0, 0])            # Center at origin
+  ✅ obj.move_to(ORIGIN)               # Center at origin
+  ✅ obj.to_edge(UP)                   # Top of screen
+  ✅ obj.shift(ORIGIN - obj.get_center())  # Move to origin
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ VALID MANIM OBJECTS & METHODS - Complete Reference:
+═══════════════════════════════════════════════════════════════════════════════
+
+**Text Objects** (ALL require font="sans-serif"):
+  obj = Text("Hello", font="sans-serif", color=WHITE, font_size=36)
+  obj = MathTex(r"F = ma", color=BLUE, font_size=44)
+  obj = Tex(r"\\frac{{{{a}}}}{{{{b}}}}")
+
+**Shapes** (Basic):
+  obj = Circle(radius=1, color=BLUE, fill_opacity=0.5)
+  obj = Square(side_length=2, color=GREEN)
+  obj = Rectangle(height=2, width=3, color=RED)
+  obj = Triangle(color=YELLOW)
+  obj = Ellipse(width=3, height=2)
+  obj = Arc(radius=1, angle=PI/2)
+  obj = Line(start=[0,0,0], end=[1,1,0])
+  obj = Arrow(start=[0,0,0], end=[1,0,0], color=RED)
+  obj = Polygon([0,0,0], [1,0,0], [1,1,0])
+
+**Styling** (MUST use these exact signatures):
+  obj.set_fill(color, opacity)        # opacity is 0-1 (NOT fill_opacity=)
+  obj.set_stroke(color, width)        # width in pixels (NOT stroke_width=)
+  obj.set_color(color)
+  obj.set_opacity(value)              # 0-1
+  obj.set_z_index(value)              # Layer depth
+
+**Positioning** (EXACT method names):
+  obj.shift(UP * 2)                   # Move by vector
+  obj.move_to([0, 2, 0])              # Move to absolute point
+  obj.to_edge(UP, buff=0.5)           # Snap to edge
+  obj.next_to(other, DOWN, buff=0.3)  # Next to other object
+  obj.align_to(other, UP)             # Align with other
+  obj.scale(2)                        # Scale by factor
+  obj.rotate(PI/4)                    # Rotate by angle
+  group.arrange(RIGHT, buff=1)        # Arrange group horizontally
+
+**Grouping**:
+  group = VGroup(obj1, obj2, obj3)    # Group objects
+  group.add(obj4)                     # Add to group
+  group.arrange(DOWN)                 # Arrange vertically
+
+**Animations** (EXACT names):
+  Create(obj)                         # Draw shape
+  Write(text)                         # Write text
+  FadeIn(obj)                         # Fade in
+  FadeOut(obj)                        # Fade out
+  Transform(obj1, obj2)               # Transform one to another
+  ReplacementTransform(obj1, obj2)    # Replace and transform
+  Indicate(obj, color=RED)            # Highlight
+  Circumscribe(obj)                   # Draw around
+  Flash(obj)                          # Flash effect
+  obj.animate.shift(UP)               # Animate motion
+  obj.animate.scale(2)                # Animate scale
+
+**Getting info** (Methods that return values):
+  obj.get_center()                    # [x, y, z]
+  obj.get_width()                     # Width in units
+  obj.get_height()                    # Height in units
+  obj.get_left()                      # Left edge point
+  obj.get_right()                     # Right edge point
+  obj.get_top()                       # Top edge point
+  obj.get_bottom()                    # Bottom edge point
+
+**COMMON CONSTANTS**:
+  UP, DOWN, LEFT, RIGHT               # Directions
+  ORIGIN = [0, 0, 0]                  # Center
+  WHITE, BLACK, BLUE, RED, GREEN, YELLOW, GRAY, etc.  # Colors
+  PI, TAU                             # Math constants
+
+═══════════════════════════════════════════════════════════════════════════════
+🔴 #1 CRITICAL ERROR - Empty VGroup Positioning:
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ WRONG:
     group = VGroup()  # Empty!
-    label = Text("Label").next_to(group, UP)  # CRASH!
+    label = Text("Label").next_to(group, UP)  # CRASH - empty VGroup
 
-❌ PATTERN 2: Arrange before adding objects
-    group = VGroup().arrange(RIGHT)  # Empty! CRASH after add!
-    group.add(Circle())
+❌ WRONG:
+    group = VGroup().arrange(RIGHT)  # Empty! CRASH on arrange
 
-❌ PATTERN 3: next_to() on object not yet defined
-    label = Text("Label").next_to(title, DOWN)  # title doesn't exist! CRASH!
-    title = Text("Title")
+❌ WRONG:
+    text1 = Text("A")
+    text2 = Text("B").next_to(text1, DOWN)  # OK so far
+    group = VGroup(text1, text2)  # Now they're grouped
+    group.arrange(RIGHT)  # CRASH - text2 is already positioned!
 
-❌ PATTERN 4: Positioning multiple objects in sequence before creating
-    text1 = Text("Line 1")
-    text2 = Text("Line 2").next_to(text1, DOWN)  # CRASH - text1 exists but may be moved later
-    text1.shift(UP)
+✅ CORRECT:
+    text1 = Text("A", font="sans-serif")
+    text2 = Text("B", font="sans-serif")
+    group = VGroup(text1, text2)  # Create group WITH objects
+    group.arrange(DOWN, buff=0.5)  # THEN arrange
+    label = Text("Group", font="sans-serif").next_to(group, UP)  # THEN position
 
-❌ PATTERN 5: Using .next_to() on uninitialized variable
-    if condition:
-        group = VGroup(obj1, obj2)
-    else:
-        group = None  # May not be initialized
-    label.next_to(group, UP)  # CRASH if None
-
-═══════════════════════════════════════════════════════════════════════════════
-✅ CORRECT PATTERNS - MUST USE THESE:
-═══════════════════════════════════════════════════════════════════════════════
-
-✅ PATTERN 1: Create all objects FIRST, then position
-    obj1 = Circle(color=BLUE, radius=0.5)
-    obj2 = Circle(color=GREEN, radius=0.5)
-    label = Text("Two circles", font="sans-serif")
-    
-    # NOW position (all objects exist)
-    obj1.shift(LEFT * 2)
-    obj2.shift(RIGHT * 2)
-    label.next_to(obj2, UP)
-    
-    # Animate
-    self.play(Create(obj1), Create(obj2), Write(label), run_time=3)
-
-✅ PATTERN 2: VGroup with objects at creation (NOT empty)
-    circle = Circle(color=BLUE)
-    square = Square(color=GREEN)
-    
-    # Create VGroup WITH objects
-    group = VGroup(circle, square)
-    
-    # NOW arrange is safe
-    group.arrange(RIGHT, buff=1)
-    label = Text("Group").next_to(group, UP)
-    
-    self.play(Create(group), Write(label))
-
-✅ PATTERN 3: Sequential chaining ONLY works if previous object exists
-    title = Text("Title", font="sans-serif").to_edge(UP)
-    # title exists now
-    subtitle = Text("Subtitle", font="sans-serif").next_to(title, DOWN)
-    # subtitle placed relative to title (which exists)
-    body = Text("Body text", font="sans-serif").next_to(subtitle, DOWN)
-    # body placed relative to subtitle (which exists)
-    
-    self.play(Write(title), Write(subtitle), Write(body), run_time=4)
-
-✅ PATTERN 4: Absolute positioning (SAFEST - no dependencies)
-    obj1 = Circle().move_to([0, 2, 0])      # Absolute position
-    obj2 = Square().move_to([0, 0, 0])      # Absolute position
-    obj3 = Rectangle().move_to([0, -2, 0])  # Absolute position
-    
-    self.play(Create(obj1), Create(obj2), Create(obj3))
-
-✅ PATTERN 5: Reference existing objects in VGroup
-    circle = Circle(color=BLUE, radius=0.5)
-    label = Text("Circle", font="sans-serif")
-    
-    # Now group them (both exist)
-    group = VGroup(circle, label)
-    group.arrange(DOWN, buff=0.5)
-    group.shift(UP * 2)
-    
-    self.play(Create(circle), Write(label), run_time=2)
+✅ CORRECT (Absolute positioning - safest):
+    obj1 = Circle().move_to([0, 2, 0])
+    obj2 = Square().move_to([0, 0, 0])
+    obj3 = Rectangle().move_to([0, -2, 0])
+    # No relative positioning = no crashes
 
 ═══════════════════════════════════════════════════════════════════════════════
-📋 IMPLEMENTATION CHECKLIST - Verify EVERY point:
-═══════════════════════════════════════════════════════════════════════════════
-
-Before using .next_to(), .arrange(), .shift(), or any positioning method:
-  ☐ Object exists (initialized with Circle(), Text(), etc.)
-  ☐ If referring to another object in positioning, that object exists first
-  ☐ VGroup has at least one object if you plan to arrange it
-  ☐ No conditional logic that might leave objects undefined
-
-Before any animation:
-  ☐ All objects in the animation are created
-  ☐ All text uses font="sans-serif" for Vietnamese support
-  ☐ All math uses MathTex/Tex (not String)
-  ☐ No empty VGroups being animated
-
-═══════════════════════════════════════════════════════════════════════════════
-📐 MANIM SYNTAX QUICK REFERENCE:
-═══════════════════════════════════════════════════════════════════════════════
-
-**Text Objects:**
-  ✅ Text("Hello", font="sans-serif", color=WHITE, font_size=36)
-  ✅ MathTex(r"F = ma", color=BLUE, font_size=44)
-  ✅ Tex(r"\\frac{{{{a}}}}{{{{b}}}}")  # 4 braces for LaTeX
-
-**Positioning:**
-  ✅ obj.shift(UP * 2)           # Relative
-  ✅ obj.move_to([0, 2, 0])      # Absolute
-  ✅ obj.to_edge(UP)             # To screen edge
-  ✅ obj.next_to(other, DOWN)    # Next to (only if 'other' exists)
-  ✅ group.arrange(RIGHT, buff=0.5)  # Only if group has objects
-
-**Styling:**
-  ✅ obj.set_fill(BLUE, 0.5)     # color, opacity (0-1)
-  ✅ obj.set_stroke(WHITE, 2)    # color, width
-  ✅ obj.set_color(RED)          # Change color
-
-**Animations:**
-  ✅ Create(obj)                 # Draw shape from scratch
-  ✅ Write(text)                 # Write text
-  ✅ FadeIn(obj)                 # Fade in
-  ✅ FadeOut(obj)                # Fade out
-  ✅ Transform(obj1, obj2)       # Transform one to another
-  ✅ Indicate(obj)               # Highlight
-  ✅ self.wait(2)                # Pause for 2 seconds
-
-**Animation Rates (use only these):**
-  ✅ rate_func=smooth            # Ease in/out
-  ✅ rate_func=linear            # Constant speed
-  ✅ rate_func=rush_into         # Fast start, slow end
-  ✅ rate_func=rush_from         # Slow start, fast end
-
-**Bad Rate Functions (DON'T USE):**
-  ❌ ease_in_out_quad
-  ❌ ease_in
-  ❌ ease_out
-  ❌ easeInOutQuad
-
-═══════════════════════════════════════════════════════════════════════════════
-🎯 COMPLETE WORKING EXAMPLE (Study & replicate pattern):
+✅ COMPLETE WORKING EXAMPLE:
 ═══════════════════════════════════════════════════════════════════════════════
 
 <manim>
 from manim import *
 
-class GravityExample(Scene):
+class GravityDemo(Scene):
     def construct(self):
-        # Set background
         self.camera.background_color = "#0f0f0f"
         
-        # === STEP 1: Create ALL objects first ===
-        title = Text("Newton's Gravity", font="sans-serif", color=WHITE, font_size=48)
+        # === STEP 1: Create ALL objects ===
+        title = Text("Newton's Law", font="sans-serif", color=WHITE, font_size=48)
+        
         earth = Circle(radius=0.8, color=BLUE, fill_opacity=0.7)
         moon = Circle(radius=0.3, color=GRAY, fill_opacity=0.7)
-        force_arrow = Arrow(earth.get_right(), moon.get_left(), color=RED, buff=0.1)
-        equation = MathTex(r"F = G\\frac{{{{m_1 m_2}}}}{{{{r^2}}}}", color=GREEN, font_size=40)
         
-        # === STEP 2: Position objects (all exist now - SAFE!) ===
+        eq = MathTex(r"F = G\\frac{{{{m_1 m_2}}}}{{{{r^2}}}}", color=GREEN, font_size=40)
+        
+        # === STEP 2: Position (all exist - SAFE) ===
         title.to_edge(UP)
-        earth.move_to([-2, 0, 0])
-        moon.move_to([2, 0, 0])
-        force_arrow = Arrow(earth.get_right(), moon.get_left(), color=RED)
-        equation.next_to(earth, DOWN, buff=1)
+        
+        earth.move_to([-2, 0, 0])  # Absolute
+        moon.move_to([2, 0, 0])    # Absolute
+        
+        eq.next_to(earth, DOWN, buff=1)  # Relative (earth exists)
         
         # === STEP 3: Animate ===
         self.play(Write(title), run_time=2)
@@ -628,57 +610,61 @@ class GravityExample(Scene):
         self.play(Create(earth), Create(moon), run_time=2)
         self.wait(1)
         
-        self.play(Create(force_arrow), Write(equation), run_time=3, rate_func=smooth)
+        arrow = Arrow(earth.get_right(), moon.get_left(), color=RED)
+        self.play(Create(arrow), Write(eq), run_time=3)
         self.wait(2)
         
-        self.play(Indicate(equation, color=YELLOW), run_time=2)
-        self.wait(1)
-        
-        self.play(FadeOut(title), FadeOut(earth), FadeOut(moon), FadeOut(force_arrow), FadeOut(equation), run_time=2)
+        self.play(
+            FadeOut(title),
+            FadeOut(earth),
+            FadeOut(moon),
+            FadeOut(arrow),
+            FadeOut(eq),
+            run_time=2
+        )
 
 </manim>
 
 ═══════════════════════════════════════════════════════════════════════════════
-⚠️ COMMON MISTAKES & FIXES:
+📋 MANDATORY CHECKLIST (Verify EVERY item):
 ═══════════════════════════════════════════════════════════════════════════════
 
-ERROR 1: "ValueError: operands could not be broadcast together with shapes (0,) (3,)"
-  CAUSE: Empty VGroup or positioning non-existent object
-  FIX: Ensure ALL objects exist before positioning. Trace object creation.
-
-ERROR 2: Vietnamese text shows as boxes
-  CAUSE: Text object without font="sans-serif"
-  FIX: ALWAYS use Text("...", font="sans-serif")
-
-ERROR 3: LaTeX won't render
-  CAUSE: Wrong brace count. Single braces in LaTeX = error
-  FIX: F_{{{{n}}}} (4 braces for subscript)
-
-ERROR 4: Object appears at wrong position
-  CAUSE: Calculated position before object moved
-  FIX: Move object, THEN reference its position
-
-ERROR 5: Animation rate looks wrong
-  CAUSE: Invalid rate_func name
-  FIX: Use only: smooth, linear, rush_into, rush_from
+Before generating code:
+  ☐ All positioning methods are from the VALID list above
+  ☐ No empty VGroups followed by .arrange() or .next_to()
+  ☐ All Text objects have font="sans-serif"
+  ☐ All MathTex have 4 braces: r"F_{{{{n}}}}"
+  ☐ VGroup created WITH objects (not empty)
+  ☐ Objects created BEFORE positioning on them
+  ☐ No .to_center(), .center(), or similar invalid methods
+  ☐ All animations use valid method names
+  ☐ rate_func is smooth, linear, rush_into, or rush_from
+  ☐ Code wrapped in <manim>...</manim>
 
 ═══════════════════════════════════════════════════════════════════════════════
-📝 FINAL CHECKLIST BEFORE GENERATING CODE:
+🚫 ABSOLUTE PROHIBITIONS:
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. Every object (Circle, Text, MathTex, etc.) is created BEFORE any method call on it
-2. If positioning object A next to object B, B is created first
-3. All Text objects have font="sans-serif"
-4. All VGroups are created WITH objects (not empty)
-5. Total animation duration ≈ {target_duration} seconds
-6. Code is wrapped in <manim>...</manim> (closing tag AFTER code ends)
-7. No </manim> tag inside the Python code
-8. All animations use valid rate_func values
+NEVER use these (they CRASH):
+  ❌ .to_center()
+  ❌ .center()
+  ❌ .center_on_screen()
+  ❌ .to_origin()
+  ❌ .get_center_point()
+  ❌ .get_part_by_text()
+  ❌ .get_parts_by_text()
+  ❌ fill_opacity= (use set_fill instead)
+  ❌ stroke_width= (use set_stroke instead)
+  ❌ ease_in_out_quad (use smooth)
+  ❌ Empty VGroup().arrange()
+  ❌ Text without font="sans-serif"
+  ❌ Single braces in LaTeX
+  ❌ </manim> inside code
 
 ═══════════════════════════════════════════════════════════════════════════════
 
 **OUTPUT**: Generate ONLY the Manim code in <manim> tags. No explanations.
-"""
+Follow the checklist above EXACTLY - every item matters."""
 
     def _call_llm(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> str:
         prompt = f"{system_prompt}\n\nUser: {user_message}"
