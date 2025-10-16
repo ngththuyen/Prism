@@ -481,14 +481,18 @@ Return ONLY valid JSON matching this exact structure:
    - ❌ DO NOT use `ease_in_out_quad` - use `smooth` instead
    - ❌ DO NOT use external image files (e.g., `ImageMobject("file.png")`) - they don't exist
    - ❌ DO NOT use single-character subscripts in LaTeX like `F_0` - use `F_{{0}}` with double braces
+   - ❌ DO NOT use `fill_opacity` parameter in `set_fill()` - use `set_fill(color, opacity)` instead
+   - ❌ DO NOT include `</manim>` tag inside the code - only wrap the entire code block
    - ✅ Always wrap subscripts/superscripts in double braces: `F_{{n}}`, `x_{{1}}`, `a^{{2}}`
    - ✅ Use only built-in Manim objects: `Circle`, `Square`, `Dot`, `Line`, `Text`, `MathTex`, `Tex`
    - ✅ For rate_func, use: `smooth`, `linear`, `rush_into`, `rush_from`
+   - ✅ For fill: Use `.set_fill(color, opacity)` NOT `.set_fill(color, fill_opacity=opacity)`
+   - ✅ For stroke: Use `.set_stroke(color, width)` NOT `.set_stroke(color, stroke_width=width)`
    - Ensure code is syntactically correct and runnable in Manim.
    - If an action's `parameters` are unclear, use sensible defaults (e.g., white color, smooth easing).
 
 **OUTPUT FORMAT**:
-Return ONLY the Manim code wrapped in <manim> tags:
+Return ONLY the Manim code wrapped in <manim> tags. DO NOT include </manim> inside the code:
 <manim>
 from manim import *
 
@@ -497,6 +501,8 @@ class {class_name}(Scene):
         # Your Manim code here
         pass
 </manim>
+
+**CRITICAL**: The closing </manim> tag should ONLY appear at the very end, after all Python code is complete.
 
 **EXAMPLE** for a scene plan (e.g., Bayes' Theorem introduction):
 <manim>
@@ -714,13 +720,25 @@ class BayesIntro(Scene):
         return "", "failed"
 
     def _clean_manim_code(self, code: str) -> str:
+        # Remove backticks
         code = code.replace('`', '')
+        
+        # Remove python language markers
         code = re.sub(r'python\n', '', code, flags=re.IGNORECASE)
         code = re.sub(r'\npython', '', code, flags=re.IGNORECASE)
+        
+        # Remove code fences
         code = re.sub(r'^```.*\n', '', code, flags=re.MULTILINE)
         code = re.sub(r'\n```.*$', '', code, flags=re.MULTILINE)
+        
+        # Remove any stray </manim> tags that got into the code
+        code = re.sub(r'</manim>', '', code, flags=re.IGNORECASE)
+        code = re.sub(r'<manim>', '', code, flags=re.IGNORECASE)
+        
+        # Normalize whitespace
         code = re.sub(r'\n{3,}', '\n\n', code)
         code = code.strip()
+        
         return code
 
     def _sanitize_class_name(self, scene_id: str) -> str:
