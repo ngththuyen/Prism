@@ -123,7 +123,7 @@ class Settings(BaseSettings):
     llm_timeout: int = 120  # seconds
 
     # Language Settings
-    target_language: str = "English"  # Supported: English, Chinese, Spanish, Vietnamese
+    target_language: str = "Vietnamese"  # Supported: Vietnamese, English
 
     @validator('elevenlabs_api_key', 'openai_api_key', pre=True)
     def validate_tts_keys(cls, v, values):

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The STEMViz TTS system now supports multiple providers that can be swapped via configuration. Currently supported providers:
+The Prism TTS system now supports multiple providers that can be swapped via configuration. Currently supported providers:
 
 - **ElevenLabs** (default) - High-quality voice synthesis with extensive customization
 - **OpenAI** - Reliable TTS with multiple voice options

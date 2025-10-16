@@ -71,6 +71,12 @@ You are an Educational Script Generator for STEM animations.
 
 **TASK**: Watch the provided silent animation video and create a synchronized narration script in SRT (SubRip) format.
 
+**IMPORTANT NOTES**:
+- The video content may be about a Vietnamese STEM concept (input was in Vietnamese)
+- You must generate narration in the TARGET LANGUAGE specified below
+- Understand the concept from the visual content, then explain it in the target language
+- Maintain technical accuracy while adapting to the target language
+
 **TARGET LANGUAGE**: {target_language}
 
 **VIDEO DURATION**: {video_duration_minutes:.1f}:{video_duration_seconds:05.2f} (minutes:seconds)
@@ -181,13 +187,13 @@ Because the ratio stays constant, slope is identical anywhere on the line.
 </srt>
 """
 
-    def execute(self, video_path: str, target_language: str = "English") -> ScriptResult:
+    def execute(self, video_path: str, target_language: str = "Vietnamese") -> ScriptResult:
         """
         Generate narration script for a silent animation video
 
         Args:
             video_path: Path to the silent animation video file
-            target_language: Target language for narration (English, Chinese, Spanish, Vietnamese)
+            target_language: Target language for narration (Vietnamese, English)
 
         Returns:
             ScriptResult with generated SRT content and metadata
@@ -243,7 +249,7 @@ Because the ratio stays constant, slope is identical anywhere on the line.
                 model_used=self.model
             )
 
-    def _generate_script_with_gemini(self, video_file: Path, target_language: str = "English", video_duration: float = 0.0) -> Optional[str]:
+    def _generate_script_with_gemini(self, video_file: Path, target_language: str = "Vietnamese", video_duration: float = 0.0) -> Optional[str]:
         """Generate script using Gemini"""
 
         for attempt in range(self.max_retries):

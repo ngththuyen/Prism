@@ -106,7 +106,7 @@ class Pipeline:
         self,
         concept: str,
         progress_callback: Optional[Callable[[str, float], None]] = None,
-        target_language: str = "English"
+        target_language: str = "Vietnamese"
     ) -> Dict[str, Any]:
         """
         Execute the full pipeline (Phase 4: concept interpretation + animation generation + script generation + audio synthesis + video composition)
@@ -114,7 +114,7 @@ class Pipeline:
         Args:
             concept: STEM concept to process
             progress_callback: Optional callback for progress updates (message, percentage)
-            target_language: Target language for narration (English, Chinese, Spanish, Vietnamese)
+            target_language: Target language for narration (Vietnamese, English)
 
         Returns:
             Dictionary with status, results, and metadata
@@ -319,7 +319,7 @@ class Pipeline:
         self.logger.info("Step 2: Animation Generation")
         return self.manim_agent.generate_animations(analysis)
 
-    def _execute_script_generation(self, animation_path: str, target_language: str = "English"):
+    def _execute_script_generation(self, animation_path: str, target_language: str = "Vietnamese"):
         """Phase 3: Generate narration script"""
         self.logger.info(f"Step 3: Script Generation in {target_language}")
         return self.script_generator.execute(animation_path, target_language)
