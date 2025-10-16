@@ -62,6 +62,7 @@ class ManimAgent(BaseAgent):
 
         # Add caching
         self.memory = Memory(location=self.output_dir / "cache", verbose=0)
+        self._generate_scene_codes = self.memory.cache(self._generate_scene_codes)
 
     def execute(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
         """Execute the Manim animation generation for the given concept analysis"""
