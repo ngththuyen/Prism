@@ -39,27 +39,27 @@ def generate_animation(concept: str, language: str = "English", progress=gr.Prog
     else:
         return None
 
-with gr.Blocks(title="STEMViz") as demo:
-    gr.Markdown("# STEMViz")
-    gr.Markdown("Transform STEM concepts into narrated educational animations")
+with gr.Blocks(title="Prism") as demo:
+    gr.Markdown("# Prism")
+    gr.Markdown("Nền tảng hỗ trợ học STEM thông qua video trực quan tạo bởi AI")
     
     with gr.Row():
         with gr.Column():
             concept_input = gr.Textbox(
-                label="Enter STEM Concept",
+                label="Nhập chủ đề STEM (Bằng tiếng anh)",
                 placeholder="e.g., Explain Bubble Sort, Bayes' Theorem, Gradient Descent...",
                 lines=2
             )
             language_dropdown = gr.Dropdown(
-                choices=["English", "Chinese", "Spanish", "Vietnamese"],
-                value="English",
-                label="Narration Language"
+                choices=["English", "Vietnamese"],
+                value="Vietnamese",
+                label="Ngôn ngữ thuyết minh"
             )
-            generate_btn = gr.Button("Generate Animation", variant="primary")
+            generate_btn = gr.Button("Tạo", variant="primary")
         
     with gr.Row():
         video_output = gr.Video(
-            label="Generated Animation",
+            label="Video đã tạo",
             autoplay=True
         )
     
