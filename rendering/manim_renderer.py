@@ -103,6 +103,8 @@ class ManimRenderer:
                         cmd,
                         capture_output=True,
                         text=True,
+                        encoding='utf-8',
+                        errors='replace',  # Replace invalid chars instead of crashing
                         timeout=self.timeout,
                         cwd=Path.cwd()
                     )
@@ -382,6 +384,8 @@ class ManimRenderer:
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=10
             )
 
@@ -414,8 +418,10 @@ class ManimRenderer:
                 ["manim", "--version"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                encoding='utf-8',
+                errors='replace',
+                timeout=5
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
             return False
