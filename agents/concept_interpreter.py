@@ -1,190 +1,202 @@
-from typing import Dict, Any, List, Optional
-import json
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from agents.base import BaseAgent
 import re
-import logging
-from dataclasses import dataclass
-import google.generativeai as genai
 
-# Flexible import for Config
-try:
-    # For direct execution
-    from config import Config
-except ImportError:
-    # For module import  
-    from ..config import Config
 
-@dataclass
-class SubConcept:
-    """Dataclass representing a sub-concept"""
-    name: str
-    definition: str
-    explanation: str
-
-@dataclass
-class ConceptAnalysis:
-    """Dataclass representing the complete analysis of a concept"""
-    main_concept: str
-    definition: str
+class SubConcept(BaseModel):
+    id: str
+    title: str
+    description: str
+    dependencies: List[str] = Field(default_factory=list)
     key_points: List[str]
-    real_world_example: str
-    visual_metaphor: str
-    mathematical_notation: str
-    level: str
+
+
+class ConceptAnalysis(BaseModel):
+    main_concept: str
     sub_concepts: List[SubConcept]
 
-class ConceptInterpreterAgent:
-    """
-    Agent responsible for interpreting and analyzing STEM concepts
-    using Google's Gemini AI model.
-    """
-    
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.config = Config()
-        
-        # Configure Gemini
-        try:
-            genai.configure(api_key=self.config.GOOGLE_API_KEY)
-            self.model = genai.GenerativeModel('gemini-pro')
-            self.logger.info("Google GenerativeAI configured successfully")
-        except Exception as e:
-            self.logger.error(f"Failed to configure Google GenerativeAI: {e}")
-            raise
-    
-    def analyze_concept(self, concept: str, language: str = "english") -> Dict[str, Any]:
-        """
-        Analyze a concept and return JSON structure with components needed for video.
-        """
-        self.logger.info(f"Analyzing concept: {concept} in language: {language}")
 
-        prompt = self._build_prompt(concept, language)
-        
+class ConceptInterpreterAgent(BaseAgent):
+    def __init__(self, api_key: str, base_url: str, model: str, reasoning_tokens: Optional[float] = None, reasoning_effort: Optional[str] = None):
+        super().__init__(api_key=api_key, base_url=base_url, model=model, reasoning_tokens=reasoning_tokens, reasoning_effort=reasoning_effort)
+
+    SYSTEM_PROMPT = """
+You are the Concept Interpreter Agent in an AI-powered STEM animation generation pipeline.
+
+PROJECT CONTEXT
+You are the first step in a system that transforms STEM concepts into short, clear educational videos. Your output will be consumed by:
+1) A Manim Agent (to create mathematical animations),
+2) A Script Generator (to write narration),
+3) An Audio Synthesizer (to generate speech), and
+4) A Video Compositor (to assemble the final video).
+
+YOUR ROLE
+Analyze exactly the STEM concept requested by the user and produce a structured, animation-ready breakdown that is simple, concrete, and visually actionable.
+
+SCOPE & CLARITY RULES (Very Important)
+- Focus only on the concept asked. Do not introduce variants or closely related topics unless strictly required for understanding.
+- Prefer plain language and short sentences. Avoid jargon when a simple term works.
+- Use examples that are easy to picture and compute (small numbers, common shapes, everyday contexts).
+- Each item must be showable on screen (diagrams, steps, equations, arrows, highlights, transformations).
+- Keep the sequence tight: from basics → build-up → main result → quick checks.
+
+ANALYSIS GUIDELINES
+
+1) Concept Decomposition (3–8 sub-concepts)
+   - Start with the most concrete foundation.
+   - Build step-by-step to the main idea or result.
+   - Every sub-concept must be visually representable in Manim or simple diagrams.
+   - Show clear dependencies (which parts must appear before others).
+
+2) Detailed Descriptions (per sub-concept)
+   - Title: 2–6 words, specific and visual.
+   - Description: 3–5 short sentences that explain:
+     * What it is and why it matters for the main concept.
+     * How it connects to the previous/next step.
+     * How to show it on screen (shapes, axes, arrows, labels, motion).
+     * The key “aha” insight in simple terms.
+
+3) Key Points (4–6 per sub-concept)
+   - Concrete, testable facts or relationships (numbers, formulas, directions, conditions).
+   - Each should imply a visual (e.g., “draw …”, “animate …”, “label …”, “arrow from … to …”).
+   - Include the minimal math/notation needed (no extra symbols).
+   - Capture the “click” moment (e.g., “doubling the radius quadruples the area”).
+
+4) Pedagogical Flow
+   - Concrete → abstract; simple → complex.
+   - Use small, clean examples (e.g., triangles with 3–4–5; vectors with (1, 2); grids up to 5×5).
+   - Include quick checkpoints (one-liners that a viewer could mentally verify).
+   - Use brief, intuitive metaphors only if they directly aid the main concept (no tangents).
+
+5) Animation-Friendly Structure
+   - Specify what appears, where it appears (left/right/top), and how it moves or transforms.
+   - Mention essential labels, colors (optional), and timing hints (e.g., “pause 1s after reveal”).
+   - Prefer consistent notation and positions across steps.
+   - If equations evolve, show term-by-term transformations (highlight moving parts).
+
+OUTPUT FORMAT (Strict)
+Return ONLY valid JSON matching exactly this structure (no extra text, no backticks):
+{
+  "main_concept": "string",
+  "sub_concepts": [
+    {
+      "id": "string",
+      "title": "string",
+      "description": "string",
+      "dependencies": ["string"],
+      "key_points": ["string"]
+    }
+  ]
+}
+
+EXAMPLE (Easy & Clear) for “Area of a Circle”:
+{
+  "main_concept": "Area of a Circle",
+  "sub_concepts": [
+    {
+      "id": "circle_basics",
+      "title": "Circle and Radius",
+      "description": "Introduce a circle with center O and radius r. Show radius as a line from O to the edge. Explain that all points on the circle are exactly r units from O. This sets the single measurement we need for area.",
+      "dependencies": [],
+      "key_points": [
+        "Draw a circle centered at O with radius r",
+        "Animate radius r as a segment from O to the boundary",
+        "Label O, r, and the circumference",
+        "Checkpoint: every boundary point is distance r from O"
+      ]
+    },
+    {
+      "id": "cut_and_unroll",
+      "title": "Slice and Rearrange",
+      "description": "Cut the circle into many equal wedges like pizza slices. Rearrange wedges alternating up and down to form a near-rectangle. This shows area by turning a curved shape into a simpler one.",
+      "dependencies": ["circle_basics"],
+      "key_points": [
+        "Slice circle into N wedges (N large, e.g., 16)",
+        "Alternate wedges to form a zig-zag rectangle",
+        "Top/bottom approximate length equals half the circumference",
+        "Height equals radius r"
+      ]
+    },
+    {
+      "id": "rectangle_link",
+      "title": "Rectangle Approximation",
+      "description": "Relate the rearranged shape to a rectangle with height r and width about half the circumference. As slices increase, the edges straighten. This makes the area easier to compute.",
+      "dependencies": ["cut_and_unroll"],
+      "key_points": [
+        "Circumference is 2πr (used as total ‘base’)",
+        "Half-circumference is πr (rectangle width)",
+        "Rectangle height is r",
+        "Approximate area becomes width × height = πr × r"
+      ]
+    },
+    {
+      "id": "final_formula",
+      "title": "Area Formula",
+      "description": "Take the limit as the number of slices grows. The rearranged shape becomes a true rectangle. This yields the exact area formula A = πr².",
+      "dependencies": ["rectangle_link"],
+      "key_points": [
+        "Area = (πr) × r",
+        "Therefore A = πr²",
+        "Highlight r² to show area scales with radius squared",
+        "Checkpoint: doubling r makes area 4×"
+      ]
+    }
+  ]
+}
+"""
+
+    def execute(self, concept: str) -> ConceptAnalysis:
+        """
+        Analyze a STEM concept and return structured breakdown
+
+        Args:
+            concept: Raw text description of STEM concept (e.g., "Explain Bayes' Theorem")
+
+        Returns:
+            ConceptAnalysis object with structured breakdown
+
+        Raises:
+            ValueError: If concept is invalid or LLM returns invalid response
+        """
+
+        # Input validation
+        concept = concept.strip()
+        if not concept:
+            raise ValueError("Concept cannot be empty")
+        if len(concept) > 500:
+            raise ValueError("Concept description too long (max 500 characters)")
+
+        # Sanitize input
+        concept = self._sanitize_input(concept)
+
+        self.logger.info(f"Analyzing concept: {concept}")
+
+        # Call LLM with structured output
+        user_message = f"Analyze this STEM concept and provide a structured breakdown:\n\n{concept}"
+
         try:
-            response = self.model.generate_content(prompt)
-            
-            # Extract and parse JSON from response
-            json_str = self._extract_json_from_response(response.text)
-            self.logger.info(f"Extracted JSON: {json_str}")
-            
-            parsed_response = json.loads(json_str)
-            return parsed_response
+            response_json = self._call_llm_structured(
+                system_prompt=self.SYSTEM_PROMPT,
+                user_message=user_message,
+                temperature=0.5,
+                max_retries=3,
+            )
+
+            # Parse and validate with Pydantic
+            analysis = ConceptAnalysis(**response_json)
+
+            self.logger.info(f"Successfully analyzed concept: {analysis.main_concept}")
+            self.logger.info(f"Generated {len(analysis.sub_concepts)} sub-concepts")
+
+            return analysis
 
         except Exception as e:
             self.logger.error(f"Failed to analyze concept: {e}")
-            response_text = getattr(response, 'text', 'No response') if 'response' in locals() else 'No response'
-            self.logger.error(f"Raw response: {response_text}")
-            
-            # Fallback response to keep pipeline running
-            return self._create_fallback_response(concept, language)
-    
-    def _extract_json_from_response(self, response_text: str) -> str:
-        """
-        Extract JSON from Gemini response text.
-        Gemini sometimes returns responses with non-standard formatting.
-        """
-        if not response_text:
-            return '{}'
-            
-        response_text = response_text.strip()
-        
-        # Find content in ```json ``` blocks
-        json_block_match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
-        if json_block_match:
-            return json_block_match.group(1).strip()
-        
-        # Find content in ``` ``` blocks
-        block_match = re.search(r'```\s*(.*?)\s*```', response_text, re.DOTALL)
-        if block_match:
-            return block_match.group(1).strip()
-        
-        # Find JSON object directly
-        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-        if json_match:
-            return json_match.group(0)
-        
-        # If no JSON found, return original response (will cause parse error)
-        return response_text
-    
-    def _create_fallback_response(self, concept: str, language: str) -> Dict[str, Any]:
-        """Create fallback response when unable to parse response from Gemini"""
-        if language.lower() == "vietnamese":
-            return {
-                "main_concept": concept,
-                "definition": f"Định nghĩa cơ bản về {concept}",
-                "key_points": [
-                    f"Khái niệm quan trọng về {concept}",
-                    f"Ứng dụng thực tế của {concept}",
-                    f"Ý nghĩa của {concept} trong STEM"
-                ],
-                "real_world_example": f"Ví dụ thực tế minh họa cho {concept}",
-                "visual_metaphor": f"Ẩn dụ trực quan cho {concept}",
-                "mathematical_notation": "Công thức toán học liên quan",
-                "level": "beginner"
-            }
-        else:
-            return {
-                "main_concept": concept,
-                "definition": f"Basic definition of {concept}",
-                "key_points": [
-                    f"Key concept about {concept}",
-                    f"Practical applications of {concept}",
-                    f"Significance of {concept} in STEM"
-                ],
-                "real_world_example": f"Real-world example illustrating {concept}",
-                "visual_metaphor": f"Visual metaphor for {concept}",
-                "mathematical_notation": "Related mathematical formula",
-                "level": "beginner"
-            }
+            raise ValueError(f"Concept interpretation failed: {e}")
 
-    def _build_prompt(self, concept: str, language: str) -> str:
-        """
-        Build prompt for Gemini - improved prompt for more stable JSON response
-        """
-        if language.lower() == "vietnamese":
-            return f"""
-            Hãy phân tích khái niệm STEM: "{concept}" và trả về kết quả dưới dạng JSON với cấu trúc sau:
-            
-            {{
-                "main_concept": "Tên chính xác của khái niệm",
-                "definition": "Định nghĩa ngắn gọn, dễ hiểu",
-                "key_points": [
-                    "Điểm quan trọng 1",
-                    "Điểm quan trọng 2", 
-                    "Điểm quan trọng 3"
-                ],
-                "real_world_example": "Ví dụ thực tế minh họa",
-                "visual_metaphor": "Ẩn dụ trực quan để minh họa khái niệm",
-                "mathematical_notation": "Ký hiệu toán học (nếu có)",
-                "level": "beginner"
-            }}
-
-            YÊU CẦU QUAN TRỌNG:
-            1. Chỉ trả về JSON, không thêm bất kỳ nội dung giải thích nào khác
-            2. Đảm bảo JSON là valid và đúng cấu trúc
-            3. Sử dụng tiếng Việt rõ ràng, dễ hiểu
-            4. Các điểm quan trọng nên ngắn gọn nhưng đầy đủ thông tin
-            """
-        else:
-            return f"""
-            Analyze the STEM concept: "{concept}" and return the result as a JSON with the following structure:
-            
-            {{
-                "main_concept": "Exact name of the concept",
-                "definition": "Brief, easy-to-understand definition", 
-                "key_points": [
-                    "Key point 1",
-                    "Key point 2",
-                    "Key point 3"
-                ],
-                "real_world_example": "Practical example illustrating the concept",
-                "visual_metaphor": "Visual metaphor to illustrate the concept",
-                "mathematical_notation": "Mathematical notation (if applicable)",
-                "level": "beginner"
-            }}
-
-            IMPORTANT REQUIREMENTS:
-            1. Return ONLY JSON, without any additional explanations
-            2. Ensure the JSON is valid and follows the exact structure
-            3. Use clear, understandable language
-            4. Key points should be concise but informative
-            """
+    def _sanitize_input(self, text: str) -> str:
+        """Remove potentially harmful characters from input"""
+        # Remove control characters but keep newlines
+        sanitized = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
+        return sanitized

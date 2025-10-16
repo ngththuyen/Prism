@@ -65,9 +65,6 @@ class ManimRenderer:
             "4k60": "k"
         }
 
-        # Supported fonts for Vietnamese
-        self.supported_fonts = ["Arial", "Noto Sans"]
-
     def render(
         self,
         manim_code: str,
@@ -85,17 +82,15 @@ class ManimRenderer:
         Returns:
             RenderResult with success status and video path or error details
         """
-        start_time = time.time()
 
-        # Validate code for unsupported fonts or missing files
-        manim_code = self._validate_code(manim_code, scene_name)
+        start_time = time.time()
 
         for attempt in range(self.max_retries + 1):
             try:
                 self.logger.info(f"Rendering Manim scene '{scene_name}' (attempt {attempt + 1}/{self.max_retries + 1})")
 
                 # Create temporary file for Manim code
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as temp_file:
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
                     temp_file.write(manim_code)
                     temp_file_path = temp_file.name
 
@@ -151,14 +146,10 @@ class ManimRenderer:
                         self.logger.warning(f"STDOUT: {result.stdout[-500:]}")
 
                         if attempt < self.max_retries and self._is_retryable_error(error_analysis):
-                            # Try with simplified code or fallback on retry
+                            # Try with simplified code on retry
                             simplified_code = self._simplify_manim_code(manim_code)
                             if simplified_code != manim_code:
                                 manim_code = simplified_code
-                                continue
-                            elif "LaTeX" in error_analysis:
-                                # Fallback to non-LaTeX rendering
-                                manim_code = self._remove_latex_usage(manim_code)
                                 continue
 
                         return RenderResult(
@@ -195,45 +186,6 @@ class ManimRenderer:
             error_message=f"Failed after {self.max_retries + 1} attempts"
         )
 
-    def _validate_code(self, manim_code: str, scene_name: str) -> str:
-        """Validate Manim code for common issues (e.g., missing files, unsupported fonts)"""
-        # Check for image file references
-        image_pattern = r'ImageMobject\s*\(\s*[\'"](.+?)[\'"]'
-        matches = re.findall(image_pattern, manim_code)
-        for image_file in matches:
-            if not (Path.cwd() / image_file).exists():
-                self.logger.warning(f"Image file '{image_file}' referenced in {scene_name} but not found")
-                # Replace ImageMobject with a placeholder (e.g., Circle)
-                manim_code = re.sub(
-                    rf'ImageMobject\s*\(\s*[\'"]({re.escape(image_file)}[\'"]\s*\))',
-                    'Circle(radius=0.5, color=WHITE)',
-                    manim_code
-                )
-
-        # Check for font usage
-        font_pattern = r'Text\s*\([^)]*font\s*=\s*[\'"](.+?)[\'"]'
-        fonts = re.findall(font_pattern, manim_code)
-        for font in fonts:
-            if font not in self.supported_fonts:
-                self.logger.warning(f"Unsupported font '{font}' in {scene_name}, replacing with Arial")
-                manim_code = re.sub(
-                    rf'Text\s*\([^)]*font\s*=\s*[\'"]{re.escape(font)}[\'"]',
-                    r'Text\g<0>font="Arial"',
-                    manim_code
-                )
-
-        return manim_code
-
-    def _remove_latex_usage(self, manim_code: str) -> str:
-        """Remove LaTeX usage (MathTex/Tex) and replace with Text"""
-        # Replace MathTex/Tex with Text
-        manim_code = re.sub(r'MathTex\(', 'Text(', manim_code)
-        manim_code = re.sub(r'Tex\(', 'Text(', manim_code)
-        # Ensure font is set to Arial
-        manim_code = re.sub(r'Text\s*\([^)]*\)', r'\g<0>, font="Arial"', manim_code)
-        self.logger.info("Removed LaTeX usage, replaced with Text(font='Arial')")
-        return manim_code
-
     def _build_manim_command(
         self,
         script_path: str,
@@ -241,6 +193,7 @@ class ManimRenderer:
         output_filename: Optional[str] = None
     ) -> list:
         """Build Manim command line arguments"""
+
         # Convert quality to new format if needed
         quality = self.old_to_new_quality.get(self.quality, self.quality)
         
@@ -255,9 +208,6 @@ class ManimRenderer:
         if output_filename:
             cmd.extend(["-o", str(output_filename)])
 
-        # Add font configuration for Vietnamese
-        cmd.extend(["--config_file", str(Path.cwd() / "manim.cfg")])
-
         return cmd
 
     def _find_output_video(
@@ -267,6 +217,7 @@ class ManimRenderer:
         output_filename: Optional[str] = None
     ) -> Optional[Path]:
         """Find the rendered video file in Manim output"""
+
         # First try custom filename if specified
         if output_filename:
             custom_path = self.output_dir / output_filename
@@ -274,6 +225,7 @@ class ManimRenderer:
                 return custom_path
 
         # Parse Manim output for file path
+        # Look for patterns like "File ready at /path/to/video.mp4"
         patterns = [
             r"File ready at (.+?\.mp4)",
             r"Output written to (.+?\.mp4)",
@@ -288,16 +240,20 @@ class ManimRenderer:
                     return video_path
 
         # New Manim (v0.19+) stores files in media/videos directory
+        # Search in the default media directory first (relative to cwd)
         media_dir = Path.cwd() / "media" / "videos"
         if media_dir.exists():
+            # Look for the most recent video file (exclude partial_movie_files)
             video_files = [v for v in media_dir.rglob("*.mp4") if "partial_movie_files" not in str(v)]
             if video_files:
+                # Filter by scene name if possible
                 scene_videos = [v for v in video_files if scene_name in v.name]
                 if scene_videos:
                     video_path = max(scene_videos, key=lambda x: x.stat().st_mtime)
                 else:
                     video_path = max(video_files, key=lambda x: x.stat().st_mtime)
 
+                # Copy to our output directory with proper naming
                 if video_path.exists():
                     if output_filename:
                         output_path = self.output_dir / output_filename
@@ -317,6 +273,7 @@ class ManimRenderer:
         for pattern in search_patterns:
             videos = [v for v in self.output_dir.glob(pattern) if v.is_file()]
             if videos:
+                # Return the most recently modified file
                 video_path = max(videos, key=lambda x: x.stat().st_mtime)
                 self.logger.info(f"Found video via fallback: {video_path}")
                 return video_path
@@ -328,13 +285,12 @@ class ManimRenderer:
 
     def _analyze_manim_error(self, stderr: str, stdout: str) -> str:
         """Analyze Manim error output and provide helpful error messages"""
+
         output = stderr + stdout
 
-        # Extended error patterns for LaTeX and file issues
+        # Common error patterns
         error_patterns = {
-            r"No such file or directory: 'latex'": "LaTeX not installed - install LaTeX (e.g., MiKTeX on Windows)",
-            r"latex error.*preview\.sty.*not found": "LaTeX package 'preview' not found - run 'tlmgr install preview' or install via MiKTeX",
-            r"OSError:.*could not find (.+\.png)": "Missing image file '\1' - ensure file exists or update code to avoid external images",
+            r"No such file or directory: 'latex'": "LaTeX not installed - install LaTeX (brew install --cask mactex)",
             r"SyntaxError": "Syntax error in Manim code - invalid Python syntax",
             r"IndentationError": "Indentation error - check code spacing and alignment",
             r"NameError.*not defined": "Variable or function not defined - check for typos",
@@ -346,7 +302,7 @@ class ManimRenderer:
             r"KeyError": "Key error - dictionary key not found",
             r"ImportError": "Import error - required module not available",
             r"ModuleNotFoundError": "Module not found - check import statements",
-            r"No scene named": "Scene class not found - ensure scene name matches class definition",
+            r"No scene named": f"Scene class not found - ensure scene name matches class definition",
             r"OpenGL is not supported": "OpenGL rendering not supported - falling back to software rendering",
             r"ffmpeg.*not found": "FFmpeg not found - ensure FFmpeg is installed and in PATH",
             r"Permission denied": "Permission error - unable to write to output directory",
@@ -356,11 +312,12 @@ class ManimRenderer:
         }
 
         for pattern, message in error_patterns.items():
-            match = re.search(pattern, output, re.IGNORECASE)
-            if match:
-                return message.format(*match.groups()) if match.groups() else message
+            if re.search(pattern, output, re.IGNORECASE):
+                return message
 
+        # If no specific pattern matches, return a generic message with useful context
         if "Traceback" in output:
+            # Extract the last line of the traceback for more specific error
             lines = output.strip().split('\n')
             for line in reversed(lines):
                 if line.strip() and not line.startswith(' ') and not line.startswith('\t'):
@@ -370,13 +327,13 @@ class ManimRenderer:
 
     def _is_retryable_error(self, error_message: str) -> bool:
         """Determine if an error is likely to be fixed by retrying with simplified code"""
+
         retryable_patterns = [
             r"Memory.*error",
             r"Timeout",
             r"OpenGL.*not supported",
             r"Complex.*animation",
-            r"Too.*many.*objects",
-            r"LaTeX.*error"
+            r"Too.*many.*objects"
         ]
 
         for pattern in retryable_patterns:
@@ -387,11 +344,20 @@ class ManimRenderer:
 
     def _simplify_manim_code(self, code: str) -> str:
         """Attempt to simplify Manim code to avoid common rendering issues"""
+
+        # Basic simplifications that might help with complex scenes
         simplifications = [
+            # Reduce animation quality settings within code
             (r"frame_rate\s*=\s*\d+", "frame_rate = 15"),
+
+            # Reduce particle counts or complex object counts
             (r"n_points\s*=\s*\d+", "n_points = 20"),
             (r"num_elements\s*=\s*\d+", "num_elements = 10"),
+
+            # Simplify colors to basic ones
             (r"#[0-9a-fA-F]{6}", "#FFFFFF"),
+
+            # Reduce animation durations
             (r"run_time\s*=\s*\d+\.?\d*", "run_time = 1.0"),
         ]
 
