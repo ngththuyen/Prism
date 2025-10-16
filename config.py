@@ -99,13 +99,13 @@ class Settings(BaseSettings):
     interpreter_reasoning_effort: Optional[str] = "low"
     animation_reasoning_effort: Optional[str] = "medium"
 
-    # Animation Generation Settings
-    animation_temperature: float = 0.5
+    # Animation Generation Setting
+    animation_temperature: float = 0
     animation_max_retries_per_scene: int = 3
     animation_enable_simplification: bool = True
 
     # Script Generation Settings
-    script_generation_temperature: float = 0.5
+    script_generation_temperature: float = 0
     script_generation_max_retries: int = 3
     script_generation_timeout: int = 180  # seconds
 
