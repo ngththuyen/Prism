@@ -772,7 +772,6 @@ Follow the checklist above EXACTLY - every item matters.
         self.logger.info(f"Raw scene plans output saved to {filepath}")
         return filepath
 
-    @_memory.cache
     def _generate_scene_codes(self, scene_plans: List[ScenePlan]) -> List[ManimSceneCode]:
         scene_codes = []
         self.logger.info(f"Starting parallel code generation for {len(scene_plans)} scenes")
