@@ -480,7 +480,7 @@ Return ONLY valid JSON matching this exact structure:
 6. **CRITICAL RULES - Must Follow Exactly**:
 
    **❌ FORBIDDEN - These Will Cause Errors:**
-   - `ease_in_out_quad` → Use `smooth` or `linear`
+   - `ease_in_out_quad`, `ease_in`, `ease_out` → Use `smooth`, `linear`, `rush_into`, or `rush_from`
    - `ImageMobject("file.png")` → External files don't exist
    - `obj.set_fill(color, fill_opacity=0.5)` → Use `obj.set_fill(color, 0.5)`
    - `obj.set_stroke(color, stroke_width=2)` → Use `obj.set_stroke(color, 2)`
@@ -527,12 +527,19 @@ Return ONLY valid JSON matching this exact structure:
    self.play(Indicate(line1, color=RED))
    ```
    
-   **Rate Functions:**
+   **Rate Functions (ONLY use these - already imported from manim):**
    ```python
-   # ✅ CORRECT:
-   self.play(Write(text), rate_func=smooth)
-   self.play(FadeIn(obj), rate_func=linear)
-   self.play(Transform(a, b), rate_func=rush_into)
+   # ✅ CORRECT - These are imported by `from manim import *`:
+   self.play(Write(text), rate_func=smooth)      # Smooth ease in/out
+   self.play(FadeIn(obj), rate_func=linear)      # Constant speed
+   self.play(Transform(a, b), rate_func=rush_into)   # Fast start, slow end
+   self.play(obj.animate.shift(UP), rate_func=rush_from)  # Slow start, fast end
+   
+   # ❌ WRONG - These need manual import:
+   self.play(Write(text), rate_func=ease_in)     # NOT imported!
+   self.play(Write(text), rate_func=ease_out)    # NOT imported!
+   
+   # Valid rate_func values: smooth, linear, rush_into, rush_from, there_and_back
    ```
    
    **Positioning Objects (CRITICAL - Avoid Empty Objects):**
