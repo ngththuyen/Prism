@@ -89,8 +89,8 @@ class ManimRenderer:
             try:
                 self.logger.info(f"Rendering Manim scene '{scene_name}' (attempt {attempt + 1}/{self.max_retries + 1})")
 
-                # Create temporary file for Manim code
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
+                # Create temporary file for Manim code with UTF-8 encoding
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as temp_file:
                     temp_file.write(manim_code)
                     temp_file_path = temp_file.name
 
