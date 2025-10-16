@@ -548,16 +548,46 @@ class BayesIntro(Scene):
                     generation_config={"temperature": temperature}
                 )
                 response_text = response.text.strip()
+                
+                # Remove code fences
                 if response_text.startswith('```json'):
                     response_text = response_text[7:].strip()
                 if response_text.endswith('```'):
                     response_text = response_text[:-3].strip()
-                return json.loads(response_text)
+                
+                # Fix common LaTeX escape issues in JSON
+                # Replace single backslashes with double backslashes for LaTeX commands
+                # But be careful not to break valid JSON escapes like \n, \t, \"
+                response_text = self._fix_latex_escapes_in_json(response_text)
+                
+                return json.loads(response_text, strict=False)
             except json.JSONDecodeError as e:
                 self.logger.warning(f"JSON parse error on attempt {attempt+1}: {e}")
+                # Log the problematic JSON for debugging
+                if attempt == max_retries - 1:
+                    self.logger.error(f"Failed JSON content (first 500 chars): {response_text[:500]}")
             except Exception as e:
                 self.logger.warning(f"Gemini API error on attempt {attempt+1}: {e}")
         raise ValueError("Failed to get valid JSON response after retries")
+    
+    def _fix_latex_escapes_in_json(self, text: str) -> str:
+        """Fix LaTeX escape sequences in JSON strings"""
+        # Common LaTeX commands that need double backslashes
+        latex_commands = [
+            r'\text', r'\frac', r'\sum', r'\int', r'\sqrt', r'\alpha', r'\beta', 
+            r'\gamma', r'\delta', r'\theta', r'\lambda', r'\mu', r'\sigma',
+            r'\pi', r'\omega', r'\infty', r'\partial', r'\nabla', r'\times',
+            r'\cdot', r'\leq', r'\geq', r'\neq', r'\approx', r'\equiv',
+            r'\rightarrow', r'\leftarrow', r'\Rightarrow', r'\Leftarrow',
+            r'\mid', r'\quad', r'\qquad', r'\left', r'\right', r'\big', r'\Big'
+        ]
+        
+        # Replace each LaTeX command with double backslash version
+        for cmd in latex_commands:
+            # Only replace if not already escaped
+            text = text.replace(cmd, cmd.replace('\\', '\\\\'))
+        
+        return text
 
     def generate_animations(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
         start_time = time.time()
