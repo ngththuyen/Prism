@@ -5,7 +5,7 @@ import json
 import tempfile
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import google.generativeai as genai
@@ -21,138 +21,10 @@ from config import settings
 genai.configure(api_key=settings.google_api_key)
 
 
-class ManimCodeValidator:
-    """Validate and auto-fix Manim code before rendering"""
-    
-    # ONLY valid rate functions in Manim (Manim Community v0.19+)
-    VALID_RATE_FUNCS = {
-        'smooth', 'linear', 'rush_into', 'rush_from', 'there_and_back',
-        'ease_in_sine', 'ease_out_sine', 'ease_in_out_sine',
-        'ease_in_quad', 'ease_out_quad', 'ease_in_out_quad',
-        'ease_in_cubic', 'ease_out_cubic', 'ease_in_out_cubic',
-        'ease_in_quart', 'ease_out_quart', 'ease_in_out_quart',
-        'ease_in_quint', 'ease_out_quint', 'ease_in_out_quint',
-        'ease_in_expo', 'ease_out_expo', 'ease_in_out_expo',
-        'ease_in_circ', 'ease_out_circ', 'ease_in_out_circ',
-        'ease_in_back', 'ease_out_back', 'ease_in_out_back',
-    }
-    
-    # Invalid methods that LLM commonly uses
-    INVALID_METHODS = {
-        'to_center': 'move_to(ORIGIN)',
-        'center': 'move_to(ORIGIN)',
-        'center_on_screen': 'move_to(ORIGIN)',
-        'to_origin': 'move_to(ORIGIN)',
-        'get_center_point': 'get_center()',
-    }
-    
-    # Invalid rate functions - map to valid ones
-    INVALID_RATE_FUNCS = {
-        'ease_in': 'smooth',
-        'ease_out': 'smooth',
-        'ease_in_out': 'smooth',
-        'ease_in_out_quad': 'smooth',
-        'easeInOut': 'smooth',
-        'easeInOutQuad': 'smooth',
-    }
-    
-    @classmethod
-    def validate_and_fix(cls, code: str) -> Tuple[str, List[str]]:
-        """
-        Validate and auto-fix common Manim code errors.
-        Returns: (fixed_code, list_of_fixes_applied)
-        """
-        fixes = []
-        
-        # Fix 1: Replace invalid methods
-        for invalid, valid in cls.INVALID_METHODS.items():
-            pattern = rf'\.{invalid}\('
-            if re.search(pattern, code):
-                code = re.sub(pattern, f'.{valid}(', code)
-                fixes.append(f"Replaced .{invalid}() with .{valid}()")
-        
-        # Fix 2: Replace invalid rate_func values
-        for invalid, valid in cls.INVALID_RATE_FUNCS.items():
-            pattern = rf'rate_func\s*=\s*{re.escape(invalid)}(?![a-zA-Z_])'
-            if re.search(pattern, code):
-                code = re.sub(pattern, f'rate_func={valid}', code)
-                fixes.append(f"Replaced rate_func={invalid} with rate_func={valid}")
-        
-        # Fix 3: Remove undefined easing function references
-        undefined_easing = re.findall(r'rate_func\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)', code)
-        for func_name in set(undefined_easing):
-            if func_name not in cls.VALID_RATE_FUNCS:
-                code = re.sub(rf'rate_func\s*=\s*{func_name}(?![a-zA-Z_])', 'rate_func=smooth', code)
-                fixes.append(f"Replaced undefined rate_func={func_name} with rate_func=smooth")
-        
-        # Fix 4: Ensure all Text has font="sans-serif"
-        # Match Text(...) without font= parameter
-        text_pattern = r'Text\s*\(\s*(["\'][^"\']*["\']\s*(?:,\s*(?!font=)[a-zA-Z_]+\s*=)?[^)]*)\s*\)'
-        def add_font(match):
-            content = match.group(1)
-            if 'font=' not in content:
-                # Insert font after the text string
-                return f'Text({content}, font="sans-serif")'
-            return match.group(0)
-        
-        original_code = code
-        # Simpler approach: find Text calls without font
-        while 'Text("' in code or "Text('" in code:
-            # Find first Text( without font parameter nearby
-            text_start = code.find('Text(')
-            if text_start == -1:
-                break
-            
-            paren_count = 0
-            i = text_start + 5
-            text_end = -1
-            while i < len(code):
-                if code[i] == '(':
-                    paren_count += 1
-                elif code[i] == ')':
-                    if paren_count == 0:
-                        text_end = i
-                        break
-                    paren_count -= 1
-                i += 1
-            
-            if text_end == -1:
-                break
-            
-            text_section = code[text_start:text_end+1]
-            if 'font=' not in text_section and text_section.startswith('Text('):
-                # Add font parameter
-                insert_pos = text_end
-                code = code[:insert_pos] + ', font="sans-serif"' + code[insert_pos:]
-                fixes.append("Added font=\"sans-serif\" to Text object")
-            else:
-                break
-        
-        # Fix 5: Fix VGroup().arrange() pattern (empty VGroup)
-        # This is harder to auto-fix - just warn
-        if re.search(r'VGroup\(\s*\)\.(?:arrange|next_to)', code):
-            fixes.append("WARNING: Empty VGroup found with positioning - may crash")
-        
-        return code, fixes
-    
-    @classmethod
-    def validate_structure(cls, code: str) -> Tuple[bool, List[str]]:
-        """Check code structure for critical issues."""
-        errors = []
-        
-        if 'def construct(self)' not in code:
-            errors.append("Missing 'def construct(self):' method")
-        
-        if 'class' not in code or 'Scene' not in code:
-            errors.append("Missing Scene class definition")
-        
-        return len(errors) == 0, errors
-
-
 class ManimAgent(BaseAgent):
     """
     Manim Agent: Transforms structured concept analysis into visual animations
-    using scene planning and Manim code generation with validation.
+    using scene planning and Manim code generation with <manim> tag extraction.
     """
 
     def __init__(
@@ -165,8 +37,7 @@ class ManimAgent(BaseAgent):
         reasoning_tokens: Optional[float] = None,
         reasoning_effort: Optional[str] = None
     ):
-        super().__init__(api_key=api_key, base_url=base_url, model=model, 
-                        reasoning_tokens=reasoning_tokens, reasoning_effort=reasoning_effort)
+        super().__init__(api_key=api_key, base_url=base_url, model=model, reasoning_tokens=reasoning_tokens, reasoning_effort=reasoning_effort)
         self.gemini_model = genai.GenerativeModel(model)
         self.output_dir = Path(output_dir)
         self.config = config or AnimationConfig()
@@ -189,6 +60,378 @@ class ManimAgent(BaseAgent):
         """Execute the Manim animation generation for the given concept analysis"""
         return self.generate_animations(concept_analysis)
 
+    SCENE_PLANNING_PROMPT = """You are a Manim Scene Planning Agent for an educational STEM animation system.
+
+**TASK**: Create detailed scene plans for animating STEM concepts using Manim (Mathematical Animation Engine).
+
+**INPUT CONCEPT ANALYSIS**:
+{concept_analysis}
+
+**ANIMATION GUIDELINES**:
+
+1. **Scene Structure**:
+   - Create 1–2 scenes per sub-concept (maximum 8 scenes total)
+   - Each scene should be 30–45 seconds long
+   - Build scenes logically following sub-concept dependencies
+   - Start with foundations, progressively add complexity
+
+2. **Visual Design**:
+   - Use clear, educational visual style (dark background, bright elements)
+   - Include mathematical notation, equations, diagrams
+   - Show relationships and transformations visually
+   - Use color coding consistently:
+     - Blue (#3B82F6) for known/assumed quantities
+     - Green (#22C55E) for newly introduced concepts
+     - Red (#EF4444) for key/important results or warnings
+
+3. **Consistency & Continuity (VERY IMPORTANT)**:
+   - If an illustrative example is used to demonstrate the concept (e.g., a specific array for a sorting algorithm, a fixed probability scenario, a single graph), **use the exact same example and values across all scenes** unless a scene explicitly explores a variant. 
+   - Keep element IDs and targets stable across scenes (e.g., "example_array", "disease_prevalence_box") to preserve continuity.
+   - Reuse and transform existing elements instead of recreating them where possible.
+
+4. **Animation Types**:
+   - write / create: introduce text, equations, axes, or diagrams
+   - transform / replace: mathematical transformations, substitutions, rearrangements
+   - fade_in / fade_out: introduce or remove elements
+   - move / highlight: focus attention
+   - grow / shrink: emphasize scale or importance
+   - **wait**: insert a timed pause with nothing changing on screen (used for narration beats)
+
+5. **Pacing & Narration Cues**:
+   - Animations should be **slow and deliberate**. After each significant action (write, transform, highlight, etc.), insert a **wait** action of 1.5–3.0 seconds for narration.
+   - Typical durations (guideline, adjust as needed):
+     - write/create (short text/equation): 4–5s
+     - transform/replace (equation/diagram): 8-19s
+     - move/highlight: 3-5s
+     - fade_in/out: 2-5s
+     - wait (narration): 2-4s
+   - Prefer easing that reads smoothly (ease-in-out). Include `"parameters": {"easing": "ease_in_out"}` when relevant.
+
+6. **Educational Flow**:
+   - Start with context/overview
+   - Introduce new elements step-by-step
+   - Show relationships and connections visually
+   - End with key takeaways or summaries, keeping the same example visible to reinforce learning
+
+7. **Element Naming**:
+   - Use descriptive, stable targets (e.g., "bayes_equation", "likelihood_label", "frequency_grid") reused across scenes.
+   - When transforming, specify `"parameters": {"from": "<old_target>", "to": "<new_target>"}` where helpful.
+
+8. **LaTeX Formatting (IMPORTANT)**:
+   - When specifying equations in parameters, use proper LaTeX with DOUBLE braces for subscripts/superscripts
+   - ✅ CORRECT: `"equation": "F_{{n}} = F_{{n-1}} + F_{{n-2}}"`
+   - ❌ WRONG: `"equation": "F_n = F_{n-1} + F_{n-2}"`
+   - Always escape backslashes: `\\frac`, `\\sum`, `\\int`
+   - For text in math mode: `\\text{{your text}}`
+
+**OUTPUT FORMAT**:
+Return ONLY valid JSON matching this exact structure:
+{{
+    "scene_plans": [
+        {{
+            "id": "string",
+            "title": "string",
+            "description": "string",
+            "sub_concept_id": "string",
+            "actions": [
+                {{
+                    "action_type": "string",
+                    "element_type": "string",
+                    "description": "string",
+                    "target": "string",
+                    "duration": number,
+                    "parameters": {{}}
+                }}
+            ],
+            "scene_dependencies": ["string"]
+        }}
+    ]
+}}
+
+**EXAMPLE** for Bayes' Theorem (consistent example across all scenes: medical test with 1% prevalence, 90% sensitivity, 95% specificity):
+{{
+    "scene_plans": [
+        {{
+            "id": "intro_context",
+            "title": "Bayes' Theorem: Context & Setup",
+            "description": "Introduce the medical testing example and define prior, sensitivity, and specificity.",
+            "sub_concept_id": "context_prior",
+            "actions": [
+                {{
+                    "action_type": "fade_in",
+                    "element_type": "text",
+                    "description": "Display title 'Bayes' Theorem'",
+                    "target": "title_text",
+                    "duration": 2.0,
+                    "parameters": {{"text": "Bayes' Theorem", "color": "#FFFFFF"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Narration pause after title",
+                    "target": "narration_pause_1",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "write",
+                    "element_type": "text",
+                    "description": "Present consistent example scenario",
+                    "target": "scenario_text",
+                    "duration": 5.0,
+                    "parameters": {{"text": "Medical test scenario: Disease prevalence 1%, Sensitivity 90%, Specificity 95%", "color": "#FFFFFF", "easing": "ease_in_out"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause for narrator to explain prevalence and test properties",
+                    "target": "narration_pause_2",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "write",
+                    "element_type": "math_equation",
+                    "description": "Define prior and test properties with color coding",
+                    "target": "definitions",
+                    "duration": 6.0,
+                    "parameters": {{"equation": "P(D)=0.01,\\ \\text{{sensitivity}}=0.90,\\ \\text{{specificity}}=0.95", "color": "#3B82F6", "easing": "ease_in_out"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Hold before moving on",
+                    "target": "narration_pause_3",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "write",
+                    "element_type": "diagram",
+                    "description": "Draw a population box to anchor the example that persists across scenes",
+                    "target": "population_box",
+                    "duration": 6.0,
+                    "parameters": {{"style": "outlined", "color": "#3B82F6", "label": "Population"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause to reinforce the setup",
+                    "target": "narration_pause_4",
+                    "duration": 3.0,
+                    "parameters": {{}}
+                }}
+            ],
+            "scene_dependencies": []
+        }},
+        {{
+            "id": "equation_intro",
+            "title": "Bayes' Formula",
+            "description": "Introduce Bayes' theorem and map terms to the example.",
+            "sub_concept_id": "bayes_equation",
+            "actions": [
+                {{
+                    "action_type": "write",
+                    "element_type": "math_equation",
+                    "description": "Write Bayes' theorem",
+                    "target": "bayes_equation",
+                    "duration": 4.0,
+                    "parameters": {{"equation": "P(D\\mid +)=\\frac{{P(+\\mid D)P(D)}}{{P(+)}}", "color": "#22C55E", "easing": "ease_in_out"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause to read equation",
+                    "target": "narration_pause_5",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "write",
+                    "element_type": "text",
+                    "description": "Label terms: prior, likelihood, evidence, posterior",
+                    "target": "term_labels",
+                    "duration": 5.0,
+                    "parameters": {{"text": "prior: P(D) (blue), likelihood: P(+|D) (green), evidence: P(+) (white), posterior: P(D|+) (red)", "color": "#FFFFFF"}}
+                }},
+                {{
+                    "action_type": "highlight",
+                    "element_type": "math_equation",
+                    "description": "Color-code terms on the formula",
+                    "target": "bayes_equation",
+                    "duration": 3.0,
+                    "parameters": {{"spans": [{{"term": "P(D)", "color": "#3B82F6"}}, {{"term": "P(+\\mid D)", "color": "#22C55E"}}, {{"term": "P(+)", "color": "#FFFFFF"}}, {{"term": "P(D\\mid +)", "color": "#EF4444"}}]}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Narration pause after mapping",
+                    "target": "narration_pause_6",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }}
+            ],
+            "scene_dependencies": ["intro_context"]
+        }},
+        {{
+            "id": "tree_diagram",
+            "title": "Likelihood Paths via Tree",
+            "description": "Show a probability tree aligned with the same example numbers.",
+            "sub_concept_id": "likelihood_evidence",
+            "actions": [
+                {{
+                    "action_type": "write",
+                    "element_type": "diagram",
+                    "description": "Draw tree branches for D and ¬D from population",
+                    "target": "probability_tree",
+                    "duration": 6.0,
+                    "parameters": {{"branches": [{{"label": "D (1%)", "color": "#3B82F6"}}, {{"label": "¬D (99%)", "color": "#3B82F6"}}]}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause for narrator to explain branches",
+                    "target": "narration_pause_7",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "write",
+                    "element_type": "diagram",
+                    "description": "Add test outcome branches with sensitivity/specificity",
+                    "target": "probability_tree_outcomes",
+                    "duration": 6.0,
+                    "parameters": {{"branches": [{{"from": "D", "label": "+ (90%)", "color": "#22C55E"}}, {{"from": "D", "label": "− (10%)", "color": "#22C55E"}}, {{"from": "¬D", "label": "+ (5%)", "color": "#22C55E"}}, {{"from": "¬D", "label": "− (95%)", "color": "#22C55E"}}]}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause after outcomes",
+                    "target": "narration_pause_8",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "highlight",
+                    "element_type": "diagram",
+                    "description": "Highlight the evidence paths that lead to '+'",
+                    "target": "probability_tree_outcomes",
+                    "duration": 3.0,
+                    "parameters": {{"paths": ["D→+", "¬D→+"], "color": "#EF4444"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Hold to emphasize 'evidence' P(+)",
+                    "target": "narration_pause_9",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }}
+            ],
+            "scene_dependencies": ["intro_context", "equation_intro"]
+        }},
+        {{
+            "id": "frequency_view",
+            "title": "Frequency Grid Intuition",
+            "description": "Use a 10,000-dot grid to make P(+) and P(D|+) concrete with the same numbers.",
+            "sub_concept_id": "evidence_frequency",
+            "actions": [
+                {{
+                    "action_type": "write",
+                    "element_type": "diagram",
+                    "description": "Create 10,000-dot grid inside population box (persists across scenes)",
+                    "target": "frequency_grid",
+                    "duration": 6.0,
+                    "parameters": {{"rows": 100, "cols": 100, "color": "#555555", "parent": "population_box"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause for narrator to explain frequency framing",
+                    "target": "narration_pause_10",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "highlight",
+                    "element_type": "diagram",
+                    "description": "Color 100 diseased dots (1%) in blue",
+                    "target": "frequency_grid_D",
+                    "duration": 4.0,
+                    "parameters": {{"count": 100, "color": "#3B82F6"}}
+                }},
+                {{
+                    "action_type": "highlight",
+                    "element_type": "diagram",
+                    "description": "Among D, highlight 90 true positives in green",
+                    "target": "frequency_grid_TP",
+                    "duration": 4.0,
+                    "parameters": {{"count": 90, "color": "#22C55E"}}
+                }},
+                {{
+                    "action_type": "highlight",
+                    "element_type": "diagram",
+                    "description": "Among ¬D, highlight 495 false positives (5% of 9,900) in green outline",
+                    "target": "frequency_grid_FP",
+                    "duration": 5.0,
+                    "parameters": {{"count": 495, "style": "outline", "color": "#22C55E"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Hold to let counts sink in",
+                    "target": "narration_pause_11",
+                    "duration": 3.0,
+                    "parameters": {{}}
+                }}
+            ],
+            "scene_dependencies": ["intro_context", "equation_intro", "tree_diagram"]
+        }},
+        {{
+            "id": "posterior_compute",
+            "title": "Compute P(D|+)",
+            "description": "Compute the posterior step-by-step using the same counts and Bayes' formula.",
+            "sub_concept_id": "posterior_computation",
+            "actions": [
+                {{
+                    "action_type": "write",
+                    "element_type": "math_equation",
+                    "description": "Substitute numeric values into Bayes' formula",
+                    "target": "substitution",
+                    "duration": 5.0,
+                    "parameters": {{"equation": "P(D\\mid +)=\\frac{{0.90\\times 0.01}}{{0.90\\times 0.01 + 0.05\\times 0.99}}", "color": "#FFFFFF"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause for narrator before simplifying",
+                    "target": "narration_pause_12",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }},
+                {{
+                    "action_type": "transform",
+                    "element_type": "math_equation",
+                    "description": "Simplify numerators and denominators",
+                    "target": "substitution",
+                    "duration": 4.0,
+                    "parameters": {{"to_equation": "P(D\\mid +)=\\frac{{0.009}}{{0.009+0.0495}}", "color": "#FFFFFF", "easing": "ease_in_out"}}
+                }},
+                {{
+                    "action_type": "wait",
+                    "element_type": "none",
+                    "description": "Pause before final result",
+                    "target": "narration_pause_13",
+                    "duration": 2.0,
+                    "parameters": {{}}
+                }}
+            ],
+            "scene_dependencies": ["intro_context", "equation_intro", "tree_diagram", "frequency_view"]
+        }}
+    ]
+}}
+"""
+
     CODE_GENERATION_PROMPT = """You are a Manim Code Generation Agent. Generate ONLY working, error-free Manim code.
 
 **CRITICAL: Use ONLY valid Manim methods. Invalid methods = instant crash.**
@@ -207,10 +450,10 @@ class {class_name}(Scene):
 ```
 
 ═══════════════════════════════════════════════════════════════════════════════
-CRITICAL METHODS - ONLY USE THESE (Others will CRASH)
+🔴 CRITICAL METHODS - ONLY USE THESE (Others will CRASH):
 ═══════════════════════════════════════════════════════════════════════════════
 
-VALID positioning methods (ONLY these exist):
+**VALID positioning methods** (ONLY these exist):
   ✅ obj.shift(direction)              # Relative move
   ✅ obj.move_to(point)                # Absolute position [x, y, z]
   ✅ obj.to_edge(edge, buff=0)         # Snap to screen edge (UP, DOWN, LEFT, RIGHT)
@@ -220,78 +463,121 @@ VALID positioning methods (ONLY these exist):
   ✅ obj.rotate(angle)                 # Rotate by angle
   ✅ group.arrange(direction, buff=0)  # Arrange objects in group
 
-INVALID methods (NEVER use - will crash):
+**INVALID methods** (NEVER use - will crash):
   ❌ obj.to_center()                   # WRONG - doesn't exist
   ❌ obj.center()                      # WRONG - doesn't exist  
   ❌ obj.to_origin()                   # WRONG - doesn't exist
   ❌ obj.center_on_screen()            # WRONG - doesn't exist
   ❌ obj.get_center_point()            # WRONG - doesn't exist
 
+**CORRECT alternatives**:
+  ✅ obj.move_to([0, 0, 0])            # Center at origin
+  ✅ obj.move_to(ORIGIN)               # Center at origin
+  ✅ obj.to_edge(UP)                   # Top of screen
+  ✅ obj.shift(ORIGIN - obj.get_center())  # Move to origin
+
 ═══════════════════════════════════════════════════════════════════════════════
-VALID TEXT & SHAPES
+✅ VALID MANIM OBJECTS & METHODS - Complete Reference:
 ═══════════════════════════════════════════════════════════════════════════════
 
-Text Objects (ALL require font="sans-serif"):
+**Text Objects** (ALL require font="sans-serif"):
   obj = Text("Hello", font="sans-serif", color=WHITE, font_size=36)
   obj = MathTex(r"F = ma", color=BLUE, font_size=44)
-  obj = Tex(r"\\\\frac{{{{a}}}}{{{{b}}}}")
+  obj = Tex(r"\\frac{{{{a}}}}{{{{b}}}}")
 
-Shapes (Basic):
+**Shapes** (Basic):
   obj = Circle(radius=1, color=BLUE, fill_opacity=0.5)
   obj = Square(side_length=2, color=GREEN)
   obj = Rectangle(height=2, width=3, color=RED)
   obj = Triangle(color=YELLOW)
+  obj = Ellipse(width=3, height=2)
+  obj = Arc(radius=1, angle=PI/2)
   obj = Line(start=[0,0,0], end=[1,1,0])
   obj = Arrow(start=[0,0,0], end=[1,0,0], color=RED)
+  obj = Polygon([0,0,0], [1,0,0], [1,1,0])
 
-Styling (EXACT signatures):
-  obj.set_fill(color, opacity)        # opacity is 0-1
-  obj.set_stroke(color, width)        # width in pixels
+**Styling** (MUST use these exact signatures):
+  obj.set_fill(color, opacity)        # opacity is 0-1 (NOT fill_opacity=)
+  obj.set_stroke(color, width)        # width in pixels (NOT stroke_width=)
   obj.set_color(color)
   obj.set_opacity(value)              # 0-1
+  obj.set_z_index(value)              # Layer depth
+
+**Positioning** (EXACT method names):
+  obj.shift(UP * 2)                   # Move by vector
+  obj.move_to([0, 2, 0])              # Move to absolute point
+  obj.to_edge(UP, buff=0.5)           # Snap to edge
+  obj.next_to(other, DOWN, buff=0.3)  # Next to other object
+  obj.align_to(other, UP)             # Align with other
+  obj.scale(2)                        # Scale by factor
+  obj.rotate(PI/4)                    # Rotate by angle
+  group.arrange(RIGHT, buff=1)        # Arrange group horizontally
+
+**Grouping**:
+  group = VGroup(obj1, obj2, obj3)    # Group objects
+  group.add(obj4)                     # Add to group
+  group.arrange(DOWN)                 # Arrange vertically
+
+**Animations** (EXACT names):
+  Create(obj)                         # Draw shape
+  Write(text)                         # Write text
+  FadeIn(obj)                         # Fade in
+  FadeOut(obj)                        # Fade out
+  Transform(obj1, obj2)               # Transform one to another
+  ReplacementTransform(obj1, obj2)    # Replace and transform
+  Indicate(obj, color=RED)            # Highlight
+  Circumscribe(obj)                   # Draw around
+  Flash(obj)                          # Flash effect
+  obj.animate.shift(UP)               # Animate motion
+  obj.animate.scale(2)                # Animate scale
+
+**Getting info** (Methods that return values):
+  obj.get_center()                    # [x, y, z]
+  obj.get_width()                     # Width in units
+  obj.get_height()                    # Height in units
+  obj.get_left()                      # Left edge point
+  obj.get_right()                     # Right edge point
+  obj.get_top()                       # Top edge point
+  obj.get_bottom()                    # Bottom edge point
+
+**COMMON CONSTANTS**:
+  UP, DOWN, LEFT, RIGHT               # Directions
+  ORIGIN = [0, 0, 0]                  # Center
+  WHITE, BLACK, BLUE, RED, GREEN, YELLOW, GRAY, etc.  # Colors
+  PI, TAU                             # Math constants
 
 ═══════════════════════════════════════════════════════════════════════════════
-CRITICAL ERROR PATTERN - #1 cause of crashes
+🔴 #1 CRITICAL ERROR - Empty VGroup Positioning:
 ═══════════════════════════════════════════════════════════════════════════════
 
-❌ WRONG - Empty VGroup:
-    group = VGroup()
-    label = Text("Label").next_to(group, UP)  # CRASH
+❌ WRONG:
+    group = VGroup()  # Empty!
+    label = Text("Label").next_to(group, UP)  # CRASH - empty VGroup
 
-❌ WRONG - Arrange before adding:
-    group = VGroup().arrange(RIGHT)  # Empty! CRASH
+❌ WRONG:
+    group = VGroup().arrange(RIGHT)  # Empty! CRASH on arrange
 
-✅ CORRECT - Create with objects:
-    obj1 = Circle()
-    obj2 = Square()
-    group = VGroup(obj1, obj2)  # WITH objects
-    group.arrange(DOWN, buff=0.5)
-    label = Text("Label").next_to(group, UP)
+❌ WRONG:
+    text1 = Text("A")
+    text2 = Text("B").next_to(text1, DOWN)  # OK so far
+    group = VGroup(text1, text2)  # Now they're grouped
+    group.arrange(RIGHT)  # CRASH - text2 is already positioned!
 
-✅ CORRECT - Absolute positioning (safest):
+✅ CORRECT:
+    text1 = Text("A", font="sans-serif")
+    text2 = Text("B", font="sans-serif")
+    group = VGroup(text1, text2)  # Create group WITH objects
+    group.arrange(DOWN, buff=0.5)  # THEN arrange
+    label = Text("Group", font="sans-serif").next_to(group, UP)  # THEN position
+
+✅ CORRECT (Absolute positioning - safest):
     obj1 = Circle().move_to([0, 2, 0])
     obj2 = Square().move_to([0, 0, 0])
     obj3 = Rectangle().move_to([0, -2, 0])
+    # No relative positioning = no crashes
 
 ═══════════════════════════════════════════════════════════════════════════════
-VALID RATE FUNCTIONS ONLY
-═══════════════════════════════════════════════════════════════════════════════
-
-VALID:
-  ✅ rate_func=smooth       # Ease in/out (BEST for education)
-  ✅ rate_func=linear       # Constant speed
-  ✅ rate_func=rush_into    # Fast start, slow end
-  ✅ rate_func=rush_from    # Slow start, fast end
-
-INVALID (DON'T USE - will crash):
-  ❌ rate_func=ease_in
-  ❌ rate_func=ease_out
-  ❌ rate_func=ease_in_out
-  ❌ rate_func=ease_in_out_quad
-  ❌ rate_func=easeInOut
-
-═══════════════════════════════════════════════════════════════════════════════
-COMPLETE WORKING EXAMPLE
+✅ COMPLETE WORKING EXAMPLE:
 ═══════════════════════════════════════════════════════════════════════════════
 
 <manim>
@@ -301,35 +587,84 @@ class GravityDemo(Scene):
     def construct(self):
         self.camera.background_color = "#0f0f0f"
         
-        # Step 1: Create ALL objects first
+        # === STEP 1: Create ALL objects ===
         title = Text("Newton's Law", font="sans-serif", color=WHITE, font_size=48)
+        
         earth = Circle(radius=0.8, color=BLUE, fill_opacity=0.7)
         moon = Circle(radius=0.3, color=GRAY, fill_opacity=0.7)
+        
         eq = MathTex(r"F = G\\frac{{{{m_1 m_2}}}}{{{{r^2}}}}", color=GREEN, font_size=40)
         
-        # Step 2: Position (all exist - SAFE)
+        # === STEP 2: Position (all exist - SAFE) ===
         title.to_edge(UP)
-        earth.move_to([-2, 0, 0])
-        moon.move_to([2, 0, 0])
-        eq.next_to(earth, DOWN, buff=1)
         
-        # Step 3: Animate
+        earth.move_to([-2, 0, 0])  # Absolute
+        moon.move_to([2, 0, 0])    # Absolute
+        
+        eq.next_to(earth, DOWN, buff=1)  # Relative (earth exists)
+        
+        # === STEP 3: Animate ===
         self.play(Write(title), run_time=2)
         self.wait(1)
+        
         self.play(Create(earth), Create(moon), run_time=2)
         self.wait(1)
+        
         arrow = Arrow(earth.get_right(), moon.get_left(), color=RED)
-        self.play(Create(arrow), Write(eq), run_time=3, rate_func=smooth)
+        self.play(Create(arrow), Write(eq), run_time=3)
         self.wait(2)
+        
         self.play(
-            FadeOut(title), FadeOut(earth), FadeOut(moon),
-            FadeOut(arrow), FadeOut(eq), run_time=2
+            FadeOut(title),
+            FadeOut(earth),
+            FadeOut(moon),
+            FadeOut(arrow),
+            FadeOut(eq),
+            run_time=2
         )
+
 </manim>
 
 ═══════════════════════════════════════════════════════════════════════════════
+📋 MANDATORY CHECKLIST (Verify EVERY item):
+═══════════════════════════════════════════════════════════════════════════════
 
-**OUTPUT**: Generate ONLY the Manim code in <manim> tags. No explanations."""
+Before generating code:
+  ☐ All positioning methods are from the VALID list above
+  ☐ No empty VGroups followed by .arrange() or .next_to()
+  ☐ All Text objects have font="sans-serif"
+  ☐ All MathTex have 4 braces: r"F_{{{{n}}}}"
+  ☐ VGroup created WITH objects (not empty)
+  ☐ Objects created BEFORE positioning on them
+  ☐ No .to_center(), .center(), or similar invalid methods
+  ☐ All animations use valid method names
+  ☐ rate_func is smooth, linear, rush_into, or rush_from
+  ☐ Code wrapped in <manim>...</manim>
+
+═══════════════════════════════════════════════════════════════════════════════
+🚫 ABSOLUTE PROHIBITIONS:
+═══════════════════════════════════════════════════════════════════════════════
+
+NEVER use these (they CRASH):
+  ❌ .to_center()
+  ❌ .center()
+  ❌ .center_on_screen()
+  ❌ .to_origin()
+  ❌ .get_center_point()
+  ❌ .get_part_by_text()
+  ❌ .get_parts_by_text()
+  ❌ fill_opacity= (use set_fill instead)
+  ❌ stroke_width= (use set_stroke instead)
+  ❌ ease_in_out_quad (use smooth)
+  ❌ Empty VGroup().arrange()
+  ❌ Text without font="sans-serif"
+  ❌ Single braces in LaTeX
+  ❌ </manim> inside code
+
+═══════════════════════════════════════════════════════════════════════════════
+
+**OUTPUT**: Generate ONLY the Manim code in <manim> tags. No explanations.
+Follow the checklist above EXACTLY - every item matters."""
 
     def _call_llm(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> str:
         prompt = f"{system_prompt}\n\nUser: {user_message}"
@@ -354,60 +689,63 @@ class GravityDemo(Scene):
                 )
                 response_text = response.text.strip()
                 
+                # Remove code fences
                 if response_text.startswith('```json'):
                     response_text = response_text[7:].strip()
                 if response_text.endswith('```'):
                     response_text = response_text[:-3].strip()
                 
+                # Fix common LaTeX escape issues in JSON
+                # Replace single backslashes with double backslashes for LaTeX commands
+                # But be careful not to break valid JSON escapes like \n, \t, \"
                 response_text = self._fix_latex_escapes_in_json(response_text)
+                
                 return json.loads(response_text, strict=False)
             except json.JSONDecodeError as e:
                 self.logger.warning(f"JSON parse error on attempt {attempt+1}: {e}")
+                # Log the problematic JSON for debugging
                 if attempt == max_retries - 1:
-                    self.logger.error(f"Failed JSON (first 500 chars): {response_text[:500]}")
+                    self.logger.error(f"Failed JSON content (first 500 chars): {response_text[:500]}")
             except Exception as e:
                 self.logger.warning(f"Gemini API error on attempt {attempt+1}: {e}")
         raise ValueError("Failed to get valid JSON response after retries")
     
     def _fix_latex_escapes_in_json(self, text: str) -> str:
-        """Fix LaTeX escape sequences in JSON strings"""
+        """Fix LaTeX escape sequences in JSON strings by escaping ALL backslashes"""
+        import re
+        
+        # Simple approach: Replace all single backslashes with double backslashes
+        # This works because:
+        # 1. LaTeX commands like \text need to be \\text in JSON
+        # 2. Valid JSON escapes like \n, \t, \" are preserved
+        # 3. Already escaped \\ becomes \\\\ which is fine
+        
+        # First, protect valid JSON escape sequences
+        # Valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
         protected = {}
         counter = 0
         
+        # Protect valid JSON escapes
         for escape in [r'\"', r'\\', r'\/', r'\b', r'\f', r'\n', r'\r', r'\t']:
             placeholder = f"__JSON_ESCAPE_{counter}__"
             protected[placeholder] = escape
             text = text.replace(escape, placeholder)
             counter += 1
         
+        # Protect unicode escapes \uXXXX
         text = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: f"__JSON_UNICODE_{m.group(1)}__", text)
+        
+        # Now escape all remaining single backslashes
         text = text.replace('\\', '\\\\')
         
+        # Restore protected sequences
         for placeholder, original in protected.items():
             text = text.replace(placeholder, original)
         
+        # Restore unicode escapes
         text = re.sub(r'__JSON_UNICODE_([0-9a-fA-F]{4})__', r'\\u\1', text)
+        
         return text
-
-    def validate_and_fix_code(self, manim_code: str) -> Tuple[str, List[str], bool]:
-        """
-        Validate and auto-fix Manim code before rendering.
-        Returns: (fixed_code, list_of_fixes, is_valid)
-        """
-        fixed_code, fixes = ManimCodeValidator.validate_and_fix(manim_code)
-        is_valid, errors = ManimCodeValidator.validate_structure(fixed_code)
-        
-        if fixes:
-            self.logger.info(f"Applied {len(fixes)} code fixes:")
-            for fix in fixes:
-                self.logger.info(f"  • {fix}")
-        
-        if errors:
-            self.logger.warning(f"Code validation warnings ({len(errors)}):")
-            for error in errors:
-                self.logger.warning(f"  • {error}")
-        
-        return fixed_code, fixes, is_valid
 
     def generate_animations(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
         start_time = time.time()
@@ -424,8 +762,7 @@ class GravityDemo(Scene):
             self.logger.info(f"Generated {len(scene_codes)} scene codes")
 
             render_results = self._render_scenes(scene_codes)
-            success_count = sum(1 for r in render_results if r.success)
-            self.logger.info(f"Rendered {success_count}/{len(render_results)} scenes successfully")
+            self.logger.info(f"Rendered {sum(1 for r in render_results if r.success)}/{len(render_results)} scenes successfully")
 
             final_animation = self._concatenate_scenes(render_results)
             total_render_time = sum(r.render_time for r in render_results if r.render_time is not None)
@@ -466,11 +803,11 @@ class GravityDemo(Scene):
                 token_usage=self.get_token_usage()
             )
 
-    def _generate_scene_plans(self, concept_analysis: ConceptAnalysis) -> Tuple[List[ScenePlan], Dict[str, Any]]:
+    def _generate_scene_plans(self, concept_analysis: ConceptAnalysis) -> tuple[List[ScenePlan], Dict[str, Any]]:
         user_message = f"Analyze this STEM concept and create scene plans:\n\n{json.dumps(concept_analysis.model_dump(), indent=2)}"
         try:
             response_json = self._call_llm_structured(
-                system_prompt="Generate detailed scene plans for STEM animation.",
+                system_prompt=self.SCENE_PLANNING_PROMPT,
                 user_message=user_message,
                 temperature=self.config.temperature,
                 max_retries=3
@@ -488,6 +825,7 @@ class GravityDemo(Scene):
         filepath = self.output_dir / "scene_plans" / filename
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(response_json, f, indent=2, ensure_ascii=False)
+        self.logger.info(f"Raw scene plans output saved to {filepath}")
         return filepath
 
     def _generate_scene_codes(self, scene_plans: List[ScenePlan]) -> List[ManimSceneCode]:
@@ -499,6 +837,7 @@ class GravityDemo(Scene):
                 self.logger.info(f"Generating code for scene: {scene_plan.title}")
                 class_name = self._sanitize_class_name(scene_plan.id)
                 
+                # Convert scene_plan to dict - try model_dump() first, fallback to dict()
                 try:
                     scene_plan_dict = scene_plan.model_dump()
                 except AttributeError:
@@ -508,7 +847,7 @@ class GravityDemo(Scene):
                 formatted_prompt = self.CODE_GENERATION_PROMPT.format(
                     scene_plan=scene_plan_json,
                     class_name=class_name,
-                    target_duration="20-25"
+                    target_duration="25-30"
                 )
                 response = self._call_llm(
                     system_prompt=formatted_prompt,
@@ -530,7 +869,9 @@ class GravityDemo(Scene):
                     self.logger.error(f"Failed to extract Manim code for scene: {scene_plan.id}")
                     return None
             except Exception as e:
+                import traceback
                 self.logger.error(f"Code generation failed for scene {scene_plan.id}: {e}")
+                self.logger.error(f"Traceback: {traceback.format_exc()}")
                 return None
 
         with ThreadPoolExecutor(max_workers=min(len(scene_plans), 10)) as executor:
@@ -539,37 +880,111 @@ class GravityDemo(Scene):
                 result = future.result()
                 if result:
                     scene_codes.append(result)
-        
         scene_codes.sort(key=lambda x: scene_plans.index(next(p for p in scene_plans if p.id == x.scene_id)))
-        self.logger.info(f"Code generation complete: {len(scene_codes)}/{len(scene_plans)} succeeded")
+        self.logger.info(f"Parallel code generation complete: {len(scene_codes)}/{len(scene_plans)} succeeded")
         return scene_codes
 
-    def _extract_manim_code(self, response: str) -> Tuple[str, str]:
+    def _extract_manim_code(self, response: str) -> tuple[str, str]:
         manim_pattern = r'<manim>(.*?)</manim>'
         matches = re.findall(manim_pattern, response, re.DOTALL)
         if matches:
             manim_code = self._clean_manim_code(matches[0].strip())
             return manim_code, "tags"
-        
+        class_pattern = r'class\s+(\w+)\s*\(\s*Scene\s*\):.*?(?=\n\nclass|\Z)'
+        matches = re.findall(class_pattern, response, re.DOTALL)
+        if matches:
+            class_start = response.find(f"class {matches[0]}(")
+            if class_start != -1:
+                remaining = response[class_start:]
+                next_class = re.search(r'\n\nclass\s+\w+', remaining)
+                manim_code = remaining[:next_class.start()] if next_class else remaining
+                if "from manim import" not in manim_code:
+                    manim_code = "from manim import *\n\n" + manim_code
+                manim_code = self._clean_manim_code(manim_code)
+                return manim_code.strip(), "parsing"
         if "class" in response and "def construct" in response:
             cleaned = response.strip()
             if not cleaned.startswith("from"):
                 cleaned = "from manim import *\n\n" + cleaned
             cleaned = self._clean_manim_code(cleaned)
             return cleaned, "cleanup"
-        
         return "", "failed"
 
     def _clean_manim_code(self, code: str) -> str:
+        # Remove backticks
         code = code.replace('`', '')
+        
+        # Remove python language markers
         code = re.sub(r'python\n', '', code, flags=re.IGNORECASE)
         code = re.sub(r'\npython', '', code, flags=re.IGNORECASE)
+        
+        # Remove code fences
         code = re.sub(r'^```.*\n', '', code, flags=re.MULTILINE)
         code = re.sub(r'\n```.*$', '', code, flags=re.MULTILINE)
+        
+        # Remove any stray </manim> tags that got into the code
         code = re.sub(r'</manim>', '', code, flags=re.IGNORECASE)
         code = re.sub(r'<manim>', '', code, flags=re.IGNORECASE)
+        
+        # Fix LaTeX single braces to double braces in MathTex/Tex strings
+        # Match r"..." or r'...' strings and fix LaTeX commands inside
+        code = self._fix_latex_in_code(code)
+        
+        # Replace problematic Unicode characters
+        code = code.replace('¬', r'\neg')  # NOT symbol
+        code = code.replace('∩', r'\cap')  # Intersection
+        code = code.replace('∪', r'\cup')  # Union
+        code = code.replace('∈', r'\in')   # Element of
+        code = code.replace('∀', r'\forall')  # For all
+        code = code.replace('∃', r'\exists')  # Exists
+        
+        # Normalize whitespace
         code = re.sub(r'\n{3,}', '\n\n', code)
         code = code.strip()
+        
+        return code
+    
+    def _fix_latex_in_code(self, code: str) -> str:
+        """Fix LaTeX single braces to double braces - COMPREHENSIVE approach"""
+        
+        # Strategy: Multiple passes with different patterns to catch everything
+        max_iterations = 10  # More iterations for complex nested cases
+        
+        for iteration in range(max_iterations):
+            original = code
+            
+            # Pass 1: Fix \command{content} where content has NO braces
+            code = re.sub(
+                r'\\([a-zA-Z]+)\{([^{}]+)\}',
+                r'\\\1{{\2}}',
+                code
+            )
+            
+            # Pass 2: Fix subscripts _{content}
+            code = re.sub(r'_\{([^{}]+)\}', r'_{{\1}}', code)
+            
+            # Pass 3: Fix superscripts ^{content}
+            code = re.sub(r'\^\{([^{}]+)\}', r'^{{\1}}', code)
+            
+            # Pass 4: Fix \command{content with spaces}
+            code = re.sub(
+                r'\\([a-zA-Z]+)\{([^{}]*?)\}',
+                r'\\\1{{\2}}',
+                code
+            )
+            
+            # Pass 5: Fix nested patterns like \frac{\frac{a}{b}}{c}
+            # This will gradually double-brace from inside out
+            code = re.sub(
+                r'\\([a-zA-Z]+)\{([^{}]*)\}',
+                r'\\\1{{\2}}',
+                code
+            )
+            
+            # If nothing changed in this iteration, we're done
+            if code == original:
+                break
+        
         return code
 
     def _sanitize_class_name(self, scene_id: str) -> str:
@@ -588,22 +1003,18 @@ class GravityDemo(Scene):
             f.write(f"# Class: {class_name}\n")
             f.write(f"# Generated at: {timestamp}\n\n")
             f.write(manim_code)
+        raw_filepath = filepath.with_suffix('.raw.txt')
+        with open(raw_filepath, 'w', encoding='utf-8') as f:
+            f.write(f"# Raw LLM output for scene: {scene_id}\n")
+            f.write(f"# Class: {class_name}\n")
+            f.write(f"# Generated at: {timestamp}\n\n")
+            f.write(raw_output)
         return filepath
 
     def _render_scenes(self, scene_codes: List[ManimSceneCode]) -> List[RenderResult]:
         render_results = []
         for scene_code in scene_codes:
             self.logger.info(f"Rendering scene: {scene_code.scene_name}")
-            
-            # NEW: Validate and fix code before rendering
-            fixed_code, fixes, is_valid = self.validate_and_fix_code(scene_code.manim_code)
-            if fixes:
-                self.logger.info(f"Applied {len(fixes)} auto-fixes to scene code")
-                scene_code.manim_code = fixed_code
-            
-            if not is_valid:
-                self.logger.warning(f"Scene has structure issues, attempting render anyway")
-            
             output_filename = f"{scene_code.scene_id}_{scene_code.scene_name}.mp4"
             try:
                 render_result = self.renderer.render(
@@ -640,7 +1051,6 @@ class GravityDemo(Scene):
         if not render_results:
             self.logger.error("No render results to concatenate")
             return None
-        
         video_paths = []
         for r in render_results:
             if r.success and r.video_path:
@@ -651,24 +1061,20 @@ class GravityDemo(Scene):
                     video_paths.append(video_path)
                 else:
                     self.logger.warning(f"Video path does not exist: {video_path}")
-        
         if not video_paths:
             self.logger.error("No successfully rendered scenes with valid video paths to concatenate")
             return None
-        
         self.logger.info(f"Found {len(video_paths)} videos to concatenate")
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_filename = f"animation_{timestamp}.mp4"
             output_path = self.output_dir / "animations" / output_filename
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as temp_file:
                 for video_path in video_paths:
                     abs_path = str(video_path.resolve())
                     temp_file.write(f"file '{abs_path}'\n")
                 temp_file_path = temp_file.name
-            
             try:
                 cmd = [
                     "ffmpeg",
