@@ -7,20 +7,16 @@ from typing import Optional, Any
 
 class Settings(BaseSettings):
     # API Keys
-    openrouter_api_key: str
     google_api_key: str
     elevenlabs_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
 
-    # OpenRouter Configuration
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
-
-    # Model Selection (OpenRouter model IDs)
-    reasoning_model: str = "anthropic/claude-sonnet-4.5"
-    multimodal_model: str = "gemini-2.5-pro"
+    # Model Selection (Gemini model IDs)
+    reasoning_model: str = "gemini-1.5-pro"
+    multimodal_model: str = "gemini-1.5-pro"
 
     # TTS Provider Selection
-    tts_provider: str = "elevenlabs"  # "elevenlabs", "openai"
+    tts_provider: str = "elevenlabs"  # Options: "elevenlabs", "openai"
 
     # ElevenLabs Settings (used when tts_provider="elevenlabs")
     elevenlabs_voice_id: str = "Qggl4b0xRMiqOwhPtVWT"
@@ -84,20 +80,16 @@ class Settings(BaseSettings):
     manim_max_retries: int = 3
     manim_max_scene_duration: float = 30.0  # seconds
     manim_total_video_duration_target: float = 120.0  # seconds
-    
-    
-    ### NOTE: For Anthropic models (Sonnet 4/4.5, Opus 4/4.1), use only either reasoning tokens or reasoning effort, if both are used, reasoning effort will be prioritized
-    ### For OpenAI models (GPT-5, o3, o4-mini), only reasoning effort can trigger reasoning
 
-    # Reasoning setting (Anthropic Style)
+    # Reasoning Settings (Ignored for Gemini)
+    # Note: For Anthropic models, use either reasoning tokens or effort (effort prioritized if both set)
+    # For Gemini, these are ignored; adjust prompts if reasoning control is needed
     interpreter_reasoning_tokens: Optional[int] = 2048
     animation_reasoning_tokens: Optional[int] = 4096
-    
-    # Reasoning setting (Anthropic Style)
     interpreter_reasoning_effort: Optional[str] = "low"
     animation_reasoning_effort: Optional[str] = "medium"
 
-    # Animation generation settings
+    # Animation Generation Settings
     animation_temperature: float = 0.5
     animation_max_retries_per_scene: int = 3
     animation_enable_simplification: bool = True
@@ -106,16 +98,6 @@ class Settings(BaseSettings):
     script_generation_temperature: float = 0.5
     script_generation_max_retries: int = 3
     script_generation_timeout: int = 180  # seconds
-
-    # Audio Synthesis Settings
-    tts_voice_id: str = "Qggl4b0xRMiqOwhPtVWT"
-    tts_model_id: str = "eleven_v3"
-    tts_stability: float = 0.75
-    tts_similarity_boost: float = 0.75
-    tts_style: float = 0.0
-    tts_use_speaker_boost: bool = True
-    tts_max_retries: int = 3
-    tts_timeout: int = 120  # seconds
 
     # Video Settings
     video_codec: str = "libx264"
@@ -130,7 +112,7 @@ class Settings(BaseSettings):
     subtitle_font_color: str = "white"
     subtitle_background: bool = True
     subtitle_background_opacity: float = 0.5
-    subtitle_position: str = "bottom"  # top, center, bottom
+    subtitle_position: str = "bottom"  # Options: top, center, bottom
 
     # Video Composition Settings
     video_composition_max_retries: int = 3
@@ -145,15 +127,11 @@ class Settings(BaseSettings):
 
     @validator('elevenlabs_api_key', 'openai_api_key', pre=True)
     def validate_tts_keys(cls, v, values):
-        # Check if this is the last key being validated
         if 'elevenlabs_api_key' in values and 'openai_api_key' in values:
             elevenlabs_key = values['elevenlabs_api_key']
             openai_key = values['openai_api_key']
-
-            # If both are None or empty, raise an error
             if (not elevenlabs_key or elevenlabs_key.strip() == '') and (not openai_key or openai_key.strip() == ''):
                 raise ValueError('At least one TTS API key (elevenlabs_api_key or openai_api_key) must be provided')
-
         return v
 
     class Config:
@@ -177,9 +155,6 @@ class Settings(BaseSettings):
             dir_path.mkdir(parents=True, exist_ok=True)
 
 
-# Initialize settings and create directories
-# Note: Settings will be initialized with environment variables
-# Use Settings() in your code to get the configuration
 def get_settings():
     """Get settings instance with environment variables"""
     return Settings()

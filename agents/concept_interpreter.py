@@ -1,7 +1,13 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from agents.base import BaseAgent
 import re
+import json
+import google.generativeai as genai
+from agents.base import BaseAgent
+from config import settings
+
+
+genai.configure(api_key=settings.google_api_key)
 
 
 class SubConcept(BaseModel):
@@ -18,8 +24,9 @@ class ConceptAnalysis(BaseModel):
 
 
 class ConceptInterpreterAgent(BaseAgent):
-    def __init__(self, api_key: str, base_url: str, model: str, reasoning_tokens: Optional[float] = None, reasoning_effort: Optional[str] = None):
+    def __init__(self, api_key: str = settings.google_api_key, base_url: str = "", model: str = settings.reasoning_model, reasoning_tokens: Optional[float] = None, reasoning_effort: Optional[str] = None):
         super().__init__(api_key=api_key, base_url=base_url, model=model, reasoning_tokens=reasoning_tokens, reasoning_effort=reasoning_effort)
+        self.gemini_model = genai.GenerativeModel(model)
 
     SYSTEM_PROMPT = """
 You are the Concept Interpreter Agent in an AI-powered STEM animation generation pipeline.
@@ -146,33 +153,36 @@ EXAMPLE (Easy & Clear) for “Area of a Circle”:
 }
 """
 
+    def _call_llm_structured(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> Dict:
+        prompt = f"{system_prompt}\n\nUser: {user_message}"
+        for attempt in range(max_retries):
+            try:
+                response = self.gemini_model.generate_content(
+                    prompt,
+                    generation_config={"temperature": temperature}
+                )
+                response_text = response.text.strip()
+                if response_text.startswith('```json'):
+                    response_text = response_text[7:].strip()
+                if response_text.endswith('```'):
+                    response_text = response_text[:-3].strip()
+                return json.loads(response_text)
+            except json.JSONDecodeError as e:
+                self.logger.warning(f"JSON parse error on attempt {attempt+1}: {e}")
+            except Exception as e:
+                self.logger.warning(f"Gemini API error on attempt {attempt+1}: {e}")
+        raise ValueError("Failed to get valid JSON response after retries")
+
     def execute(self, concept: str) -> ConceptAnalysis:
-        """
-        Analyze a STEM concept and return structured breakdown
-
-        Args:
-            concept: Raw text description of STEM concept (e.g., "Explain Bayes' Theorem")
-
-        Returns:
-            ConceptAnalysis object with structured breakdown
-
-        Raises:
-            ValueError: If concept is invalid or LLM returns invalid response
-        """
-
-        # Input validation
         concept = concept.strip()
         if not concept:
             raise ValueError("Concept cannot be empty")
         if len(concept) > 500:
             raise ValueError("Concept description too long (max 500 characters)")
 
-        # Sanitize input
         concept = self._sanitize_input(concept)
-
         self.logger.info(f"Analyzing concept: {concept}")
 
-        # Call LLM with structured output
         user_message = f"Analyze this STEM concept and provide a structured breakdown:\n\n{concept}"
 
         try:
@@ -183,12 +193,9 @@ EXAMPLE (Easy & Clear) for “Area of a Circle”:
                 max_retries=3,
             )
 
-            # Parse and validate with Pydantic
             analysis = ConceptAnalysis(**response_json)
-
             self.logger.info(f"Successfully analyzed concept: {analysis.main_concept}")
             self.logger.info(f"Generated {len(analysis.sub_concepts)} sub-concepts")
-
             return analysis
 
         except Exception as e:
@@ -196,7 +203,5 @@ EXAMPLE (Easy & Clear) for “Area of a Circle”:
             raise ValueError(f"Concept interpretation failed: {e}")
 
     def _sanitize_input(self, text: str) -> str:
-        """Remove potentially harmful characters from input"""
-        # Remove control characters but keep newlines
         sanitized = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
         return sanitized
