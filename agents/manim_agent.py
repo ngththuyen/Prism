@@ -436,6 +436,10 @@ Return ONLY valid JSON matching this exact structure:
 
 **TASK**: Generate Manim (Python-based Mathematical Animation Engine) code to visualize a STEM concept based on a provided scene plan.
 
+**⚠️ CRITICAL WARNING - MOST COMMON ERROR:**
+NEVER use `.next_to()`, `.arrange()`, or any positioning method on an EMPTY VGroup or object that hasn't been created yet!
+This causes: `ValueError: operands could not be broadcast together with shapes (0,) (3,)`
+
 **INPUT SCENE PLAN**:
 {scene_plan}
 
@@ -448,11 +452,12 @@ Return ONLY valid JSON matching this exact structure:
 
 2. **Visual Design**:
    - Use a dark background (`#0f0f0f`) and bright elements for visibility.
+   - **CRITICAL for Vietnamese text**: Always specify `font="sans-serif"` for Text objects to support Vietnamese characters.
    - Use consistent color coding:
      - Blue (#3B82F6) for known/assumed quantities.
      - Green (#22C55E) for newly introduced concepts.
      - Red (#EF4444) for key results or warnings.
-   - Use `Tex` for mathematical equations, `Text` for regular text, and appropriate Manim objects (e.g., `Dot`, `Line`, `Rectangle`) for diagrams.
+   - Use `Tex` for mathematical equations, `Text` for regular text (with font="sans-serif"), and appropriate Manim objects (e.g., `Dot`, `Line`, `Rectangle`) for diagrams.
 
 3. **Animation Actions**:
    - Map scene plan actions to Manim methods:
@@ -480,6 +485,7 @@ Return ONLY valid JSON matching this exact structure:
 6. **CRITICAL RULES - Must Follow Exactly**:
 
    **❌ FORBIDDEN - These Will Cause Errors:**
+   - `Text("Vietnamese text")` without font → Vietnamese chars will be broken boxes
    - `ease_in_out_quad`, `ease_in`, `ease_out` → Use `smooth`, `linear`, `rush_into`, or `rush_from`
    - `ImageMobject("file.png")` → External files don't exist
    - `obj.set_fill(color, fill_opacity=0.5)` → Use `obj.set_fill(color, 0.5)`
@@ -502,6 +508,19 @@ Return ONLY valid JSON matching this exact structure:
    # ✅ CORRECT:
    MathTex(r"F_{{{{n}}}} = F_{{{{n-1}}}} + F_{{{{n-2}}}}")
    MathTex(r"\\frac{{{{a}}}}{{{{b}}}}")
+   ```
+   
+   **Text Objects (CRITICAL for Vietnamese):**
+   ```python
+   # ❌ WRONG - Vietnamese text without font:
+   text = Text("Trọng lực")  # Will show broken boxes!
+   
+   # ✅ CORRECT - Always use font="sans-serif":
+   text = Text("Trọng lực", font="sans-serif", color=WHITE, font_size=36)
+   title = Text("Giải thích", font="sans-serif", color=BLUE, font_size=48)
+   
+   # ✅ For English text, font is optional but recommended:
+   text = Text("Gravity", font="sans-serif", color=WHITE)
    ```
    
    **Styling Objects:**
@@ -542,26 +561,40 @@ Return ONLY valid JSON matching this exact structure:
    # Valid rate_func values: smooth, linear, rush_into, rush_from, there_and_back
    ```
    
-   **Positioning Objects (CRITICAL - Avoid Empty Objects):**
+   **Positioning Objects (⚠️ CRITICAL - #1 Source of Errors!):**
    ```python
-   # ❌ WRONG - next_to() on empty VGroup:
+   # ❌ WRONG PATTERN 1 - Empty VGroup:
    group = VGroup()  # Empty!
-   label = Text("Label").next_to(group, UP)  # ERROR!
+   label = Text("Label").next_to(group, UP)  # CRASH!
    
-   # ✅ CORRECT - Create objects first:
+   # ❌ WRONG PATTERN 2 - Arrange before adding objects:
+   group = VGroup().arrange(RIGHT)  # Empty!
+   group.add(Circle(), Square())  # Too late - CRASH!
+   
+   # ❌ WRONG PATTERN 3 - next_to() on object not yet created:
+   label = Text("Label").next_to(title, DOWN)  # title doesn't exist yet - CRASH!
+   title = Text("Title")
+   
+   # ✅ CORRECT PATTERN 1 - Create objects FIRST:
    circle = Circle()
+   square = Square()
    label = Text("Label").next_to(circle, UP)  # Works!
    
-   # ✅ CORRECT - Use absolute positioning:
-   title = Text("Title").to_edge(UP)
-   formula = MathTex("E=mc^2").shift(UP * 2)
-   box = Rectangle().move_to([0, -1, 0])
-   
-   # ✅ CORRECT - VGroup with objects:
+   # ✅ CORRECT PATTERN 2 - VGroup with objects immediately:
    obj1 = Circle()
    obj2 = Square()
-   group = VGroup(obj1, obj2).arrange(RIGHT)
+   group = VGroup(obj1, obj2)  # Add objects when creating
+   group.arrange(RIGHT)  # Now safe to arrange
    label = Text("Label").next_to(group, DOWN)  # Works!
+   
+   # ✅ CORRECT PATTERN 3 - Use absolute positioning (safest):
+   title = Text("Title").to_edge(UP)
+   subtitle = Text("Subtitle").shift(UP * 2)
+   box = Rectangle().move_to([0, -1, 0])
+   
+   # ✅ CORRECT PATTERN 4 - Chain creation properly:
+   title = Text("Title").to_edge(UP)
+   subtitle = Text("Subtitle").next_to(title, DOWN)  # title exists now
    ```
    
    **Valid Manim Objects:**
@@ -602,8 +635,8 @@ class BayesIntro(Scene):
         # Set background
         self.camera.background_color = "#0f0f0f"
         
-        # 1. Title
-        title = Text("Bayes' Theorem", color=WHITE, font_size=48)
+        # 1. Title (with font for Vietnamese support)
+        title = Text("Bayes' Theorem", font="sans-serif", color=WHITE, font_size=48)
         title.to_edge(UP)
         self.play(FadeIn(title), run_time=2)
         self.wait(2)
@@ -611,6 +644,7 @@ class BayesIntro(Scene):
         # 2. Scenario description
         scenario = Text(
             "Medical Test Example",
+            font="sans-serif",
             color="#3B82F6",
             font_size=36
         ).shift(UP * 2)
@@ -627,7 +661,8 @@ class BayesIntro(Scene):
         self.play(Write(formula), run_time=4, rate_func=smooth)
         self.wait(2)
         
-        # 4. Create visual elements
+        # 4. Create visual elements (IMPORTANT: Create box FIRST, then label)
+        # Step 1: Create the box
         box = Rectangle(
             height=3,
             width=5,
@@ -637,8 +672,9 @@ class BayesIntro(Scene):
         box.set_fill("#22C55E", 0.2)  # CORRECT: color, opacity
         box.shift(DOWN * 1)
         
-        label = Text("Prior Probability", color=WHITE, font_size=28)
-        label.next_to(box, UP, buff=0.3)
+        # Step 2: Create label AFTER box exists, then use next_to()
+        label = Text("Prior Probability", font="sans-serif", color=WHITE, font_size=28)
+        label.next_to(box, UP, buff=0.3)  # Safe because box exists
         
         self.play(
             Create(box),
@@ -677,12 +713,14 @@ class BayesIntro(Scene):
 </manim>
 
 **KEY TAKEAWAYS FROM EXAMPLE:**
-1. Always use `self.camera.background_color = "#0f0f0f"`
-2. LaTeX: `\\frac{{{{a}}}}{{{{b}}}}` (4 braces for nested content)
-3. Styling: `obj.set_fill(color, opacity)` NOT `fill_opacity=`
-4. Highlight: `Indicate(entire_object)` NOT `get_part_by_text()`
-5. Rate func: `rate_func=smooth` NOT `rate_func=ease_in_out_quad`
-6. Always include `self.wait()` for narration pauses
+1. **Vietnamese text**: ALWAYS use `Text("text", font="sans-serif")` - this is CRITICAL!
+2. Always use `self.camera.background_color = "#0f0f0f"`
+3. LaTeX: `\\frac{{{{a}}}}{{{{b}}}}` (4 braces for nested content)
+4. Styling: `obj.set_fill(color, opacity)` NOT `fill_opacity=`
+5. Highlight: `Indicate(entire_object)` NOT `get_part_by_text()`
+6. Rate func: `rate_func=smooth` NOT `rate_func=ease_in_out_quad`
+7. Positioning: Create objects BEFORE using `.next_to()`
+8. Always include `self.wait()` for narration pauses
 """
 
     def _call_llm(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> str:
