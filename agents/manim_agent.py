@@ -578,12 +578,15 @@ class BayesIntro(Scene):
 
             final_animation = self._concatenate_scenes(render_results)
             total_render_time = sum(r.render_time for r in render_results if r.render_time is not None)
+            total_duration = sum(r.duration for r in render_results if r.duration is not None)
             generation_time = time.time() - start_time
 
             result = AnimationResult(
                 success=final_animation is not None,
                 concept_id=concept_analysis.main_concept.lower().replace(" ", "_"),
                 scene_count=len(scene_codes),
+                silent_animation_path=str(final_animation) if final_animation else None,
+                total_duration=total_duration if total_duration > 0 else None,
                 error_message="" if final_animation else "Failed to concatenate scenes",
                 scene_plan=scene_plans,
                 scene_codes=scene_codes,
