@@ -17,6 +17,9 @@ from agents.manim_models import (
 )
 from rendering.manim_renderer import ManimRenderer
 from config import settings
+from joblib import Memory
+import ast
+import cProfile
 
 genai.configure(api_key=settings.google_api_key)
 
@@ -41,6 +44,7 @@ class ManimAgent(BaseAgent):
         self.gemini_model = genai.GenerativeModel(model)
         self.output_dir = Path(output_dir)
         self.config = config or AnimationConfig()
+        self.config.temperature = 0.3  # Reduce temperature for more consistent code generation
 
         self.renderer = ManimRenderer(
             output_dir=self.output_dir / "scenes",
@@ -55,6 +59,9 @@ class ManimAgent(BaseAgent):
         (self.output_dir / "animations").mkdir(parents=True, exist_ok=True)
         (self.output_dir / "scenes").mkdir(parents=True, exist_ok=True)
         (self.output_dir / "scene_plans").mkdir(parents=True, exist_ok=True)
+
+        # Add caching
+        self.memory = Memory(location=self.output_dir / "cache", verbose=0)
 
     def execute(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
         """Execute the Manim animation generation for the given concept analysis"""
@@ -124,6 +131,9 @@ class ManimAgent(BaseAgent):
    - Always escape backslashes: `\\frac`, `\\sum`, `\\int`
    - For text in math mode: `\\text{{your text}}`
 
+9. **Vietnamese Language (REQUIRED)**:
+   - All descriptions, titles, texts, and parameters must be in Vietnamese. Example: 'Bayes' Theorem: Context & Setup' → 'Định lý Bayes: Ngữ cảnh và Thiết lập'. Use Vietnamese math terms where possible (e.g., 'prior' → 'xác suất tiên nghiệm').
+
 **OUTPUT FORMAT**:
 Return ONLY valid JSON matching this exact structure:
 {{
@@ -151,283 +161,283 @@ Return ONLY valid JSON matching this exact structure:
 **EXAMPLE** for Bayes' Theorem (consistent example across all scenes: medical test with 1% prevalence, 90% sensitivity, 95% specificity):
 {{
     "scene_plans": [
-        {{
+        {
             "id": "intro_context",
-            "title": "Bayes' Theorem: Context & Setup",
-            "description": "Introduce the medical testing example and define prior, sensitivity, and specificity.",
+            "title": "Định lý Bayes: Bối cảnh & Giới thiệu",
+            "description": "Giới thiệu ví dụ về xét nghiệm y tế và định nghĩa xác suất tiên nghiệm, độ nhạy, và độ đặc hiệu.",
             "sub_concept_id": "context_prior",
             "actions": [
-                {{
+                {
                     "action_type": "fade_in",
                     "element_type": "text",
-                    "description": "Display title 'Bayes' Theorem'",
+                    "description": "Hiển thị tiêu đề 'Định lý Bayes'",
                     "target": "title_text",
                     "duration": 2.0,
-                    "parameters": {{"text": "Bayes' Theorem", "color": "#FFFFFF"}}
-                }},
-                {{
+                    "parameters": {"text": "Định lý Bayes", "color": "#FFFFFF"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Narration pause after title",
+                    "description": "Tạm dừng lời dẫn sau khi hiển thị tiêu đề",
                     "target": "narration_pause_1",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
+                    "parameters": {}
+                },
+                {
                     "action_type": "write",
                     "element_type": "text",
-                    "description": "Present consistent example scenario",
+                    "description": "Trình bày ví dụ minh họa nhất quán",
                     "target": "scenario_text",
                     "duration": 5.0,
-                    "parameters": {{"text": "Medical test scenario: Disease prevalence 1%, Sensitivity 90%, Specificity 95%", "color": "#FFFFFF", "easing": "ease_in_out"}}
-                }},
-                {{
+                    "parameters": {"text": "Ví dụ xét nghiệm y tế: Tỷ lệ mắc bệnh 1%, Độ nhạy 90%, Độ đặc hiệu 95%", "color": "#FFFFFF", "easing": "ease_in_out"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Pause for narrator to explain prevalence and test properties",
+                    "description": "Tạm dừng để người dẫn giải thích về tỷ lệ mắc bệnh và đặc tính xét nghiệm",
                     "target": "narration_pause_2",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
+                    "parameters": {}
+                },
+                {
                     "action_type": "write",
                     "element_type": "math_equation",
-                    "description": "Define prior and test properties with color coding",
+                    "description": "Định nghĩa xác suất tiên nghiệm và các đặc tính xét nghiệm bằng mã màu",
                     "target": "definitions",
                     "duration": 6.0,
-                    "parameters": {{"equation": "P(D)=0.01,\\ \\text{{sensitivity}}=0.90,\\ \\text{{specificity}}=0.95", "color": "#3B82F6", "easing": "ease_in_out"}}
-                }},
-                {{
+                    "parameters": {"equation": "P(D)=0.01,\\ \\text{độ nhạy}=0.90,\\ \\text{độ đặc hiệu}=0.95", "color": "#3B82F6", "easing": "ease_in_out"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Hold before moving on",
+                    "description": "Giữ nguyên trước khi chuyển cảnh",
                     "target": "narration_pause_3",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
+                    "parameters": {}
+                },
+                {
                     "action_type": "write",
                     "element_type": "diagram",
-                    "description": "Draw a population box to anchor the example that persists across scenes",
+                    "description": "Vẽ hộp quần thể để làm nền cho ví dụ, hộp này sẽ giữ nguyên trong các cảnh sau",
                     "target": "population_box",
                     "duration": 6.0,
-                    "parameters": {{"style": "outlined", "color": "#3B82F6", "label": "Population"}}
-                }},
-                {{
+                    "parameters": {"style": "outlined", "color": "#3B82F6", "label": "Quần thể"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Pause to reinforce the setup",
+                    "description": "Tạm dừng để củng cố phần giới thiệu",
                     "target": "narration_pause_4",
                     "duration": 3.0,
-                    "parameters": {{}}
-                }}
+                    "parameters": {}
+                }
             ],
             "scene_dependencies": []
-        }},
-        {{
+        },
+        {
             "id": "equation_intro",
-            "title": "Bayes' Formula",
-            "description": "Introduce Bayes' theorem and map terms to the example.",
+            "title": "Công thức Bayes",
+            "description": "Giới thiệu công thức định lý Bayes và liên hệ các thành phần với ví dụ.",
             "sub_concept_id": "bayes_equation",
             "actions": [
-                {{
+                {
                     "action_type": "write",
                     "element_type": "math_equation",
-                    "description": "Write Bayes' theorem",
+                    "description": "Viết công thức định lý Bayes",
                     "target": "bayes_equation",
                     "duration": 4.0,
-                    "parameters": {{"equation": "P(D\\mid +)=\\frac{{P(+\\mid D)P(D)}}{{P(+)}}", "color": "#22C55E", "easing": "ease_in_out"}}
-                }},
-                {{
+                    "parameters": {"equation": "P(D\\mid +)=\\frac{P(+\\mid D)P(D)}{P(+)}", "color": "#22C55E", "easing": "ease_in_out"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Pause to read equation",
+                    "description": "Tạm dừng để người xem đọc công thức",
                     "target": "narration_pause_5",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
+                    "parameters": {}
+                },
+                {
                     "action_type": "write",
                     "element_type": "text",
-                    "description": "Label terms: prior, likelihood, evidence, posterior",
+                    "description": "Gán nhãn cho các thành phần: tiên nghiệm, khả năng, bằng chứng, hậu nghiệm",
                     "target": "term_labels",
                     "duration": 5.0,
-                    "parameters": {{"text": "prior: P(D) (blue), likelihood: P(+|D) (green), evidence: P(+) (white), posterior: P(D|+) (red)", "color": "#FFFFFF"}}
-                }},
-                {{
+                    "parameters": {"text": "Tiên nghiệm: P(D) (xanh lam), Khả năng: P(+|D) (xanh lá), Bằng chứng: P(+) (trắng), Hậu nghiệm: P(D|+) (đỏ)", "color": "#FFFFFF"}
+                },
+                {
                     "action_type": "highlight",
                     "element_type": "math_equation",
-                    "description": "Color-code terms on the formula",
+                    "description": "Tô màu các phần trong công thức",
                     "target": "bayes_equation",
                     "duration": 3.0,
-                    "parameters": {{"spans": [{{"term": "P(D)", "color": "#3B82F6"}}, {{"term": "P(+\\mid D)", "color": "#22C55E"}}, {{"term": "P(+)", "color": "#FFFFFF"}}, {{"term": "P(D\\mid +)", "color": "#EF4444"}}]}}
-                }},
-                {{
+                    "parameters": {"spans": [{"term": "P(D)", "color": "#3B82F6"}, {"term": "P(+\\mid D)", "color": "#22C55E"}, {"term": "P(+)", "color": "#FFFFFF"}, {"term": "P(D\\mid +)", "color": "#EF4444"}]}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Narration pause after mapping",
+                    "description": "Tạm dừng sau khi gán nhãn",
                     "target": "narration_pause_6",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }}
+                    "parameters": {}
+                }
             ],
             "scene_dependencies": ["intro_context"]
-        }},
-        {{
+        },
+        {
             "id": "tree_diagram",
-            "title": "Likelihood Paths via Tree",
-            "description": "Show a probability tree aligned with the same example numbers.",
+            "title": "Cây xác suất",
+            "description": "Minh họa các nhánh xác suất tương ứng với các con số trong ví dụ.",
             "sub_concept_id": "likelihood_evidence",
             "actions": [
-                {{
+                {
                     "action_type": "write",
                     "element_type": "diagram",
-                    "description": "Draw tree branches for D and ¬D from population",
+                    "description": "Vẽ các nhánh D và ¬D từ quần thể",
                     "target": "probability_tree",
                     "duration": 6.0,
-                    "parameters": {{"branches": [{{"label": "D (1%)", "color": "#3B82F6"}}, {{"label": "¬D (99%)", "color": "#3B82F6"}}]}}
-                }},
-                {{
+                    "parameters": {"branches": [{"label": "D (1%)", "color": "#3B82F6"}, {"label": "¬D (99%)", "color": "#3B82F6"}]}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Pause for narrator to explain branches",
+                    "description": "Tạm dừng để người dẫn giải thích nhánh",
                     "target": "narration_pause_7",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
+                    "parameters": {}
+                },
+                {
                     "action_type": "write",
                     "element_type": "diagram",
-                    "description": "Add test outcome branches with sensitivity/specificity",
+                    "description": "Thêm các nhánh kết quả xét nghiệm với độ nhạy và độ đặc hiệu",
                     "target": "probability_tree_outcomes",
                     "duration": 6.0,
-                    "parameters": {{"branches": [{{"from": "D", "label": "+ (90%)", "color": "#22C55E"}}, {{"from": "D", "label": "− (10%)", "color": "#22C55E"}}, {{"from": "¬D", "label": "+ (5%)", "color": "#22C55E"}}, {{"from": "¬D", "label": "− (95%)", "color": "#22C55E"}}]}}
-                }},
-                {{
+                    "parameters": {"branches": [{"from": "D", "label": "+ (90%)", "color": "#22C55E"}, {"from": "D", "label": "− (10%)", "color": "#22C55E"}, {"from": "¬D", "label": "+ (5%)", "color": "#22C55E"}, {"from": "¬D", "label": "− (95%)", "color": "#22C55E"}]}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Pause after outcomes",
+                    "description": "Tạm dừng sau khi thêm kết quả",
                     "target": "narration_pause_8",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
+                    "parameters": {}
+                },
+                {
                     "action_type": "highlight",
                     "element_type": "diagram",
-                    "description": "Highlight the evidence paths that lead to '+'",
+                    "description": "Làm nổi bật các nhánh dẫn đến kết quả '+', thể hiện bằng chứng P(+)",
                     "target": "probability_tree_outcomes",
                     "duration": 3.0,
-                    "parameters": {{"paths": ["D→+", "¬D→+"], "color": "#EF4444"}}
-                }},
-                {{
+                    "parameters": {"paths": ["D→+", "¬D→+"], "color": "#EF4444"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Hold to emphasize 'evidence' P(+)",
+                    "description": "Giữ để nhấn mạnh khái niệm 'bằng chứng' P(+)",
                     "target": "narration_pause_9",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }}
+                    "parameters": {}
+                }
             ],
             "scene_dependencies": ["intro_context", "equation_intro"]
-        }},
-        {{
+        },
+        {
             "id": "frequency_view",
-            "title": "Frequency Grid Intuition",
-            "description": "Use a 10,000-dot grid to make P(+) and P(D|+) concrete with the same numbers.",
+            "title": "Trực quan bằng lưới tần suất",
+            "description": "Sử dụng lưới 10.000 điểm để trực quan hóa P(+) và P(D|+) với cùng dữ liệu.",
             "sub_concept_id": "evidence_frequency",
             "actions": [
-                {{
+                {
                     "action_type": "write",
                     "element_type": "diagram",
-                    "description": "Create 10,000-dot grid inside population box (persists across scenes)",
+                    "description": "Tạo lưới 10.000 điểm trong hộp quần thể (duy trì qua các cảnh)",
                     "target": "frequency_grid",
                     "duration": 6.0,
-                    "parameters": {{"rows": 100, "cols": 100, "color": "#555555", "parent": "population_box"}}
-                }},
-                {{
+                    "parameters": {"rows": 100, "cols": 100, "color": "#555555", "parent": "population_box"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Pause for narrator to explain frequency framing",
+                    "description": "Tạm dừng để người dẫn giải thích khung tần suất",
                     "target": "narration_pause_10",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
+                    "parameters": {}
+                },
+                {
                     "action_type": "highlight",
                     "element_type": "diagram",
-                    "description": "Color 100 diseased dots (1%) in blue",
+                    "description": "Tô màu 100 điểm mắc bệnh (1%) bằng màu xanh lam",
                     "target": "frequency_grid_D",
                     "duration": 4.0,
-                    "parameters": {{"count": 100, "color": "#3B82F6"}}
-                }},
-                {{
+                    "parameters": {"count": 100, "color": "#3B82F6"}
+                },
+                {
                     "action_type": "highlight",
                     "element_type": "diagram",
-                    "description": "Among D, highlight 90 true positives in green",
+                    "description": "Trong nhóm D, tô nổi 90 ca dương tính thật bằng màu xanh lá",
                     "target": "frequency_grid_TP",
                     "duration": 4.0,
-                    "parameters": {{"count": 90, "color": "#22C55E"}}
-                }},
-                {{
+                    "parameters": {"count": 90, "color": "#22C55E"}
+                },
+                {
                     "action_type": "highlight",
                     "element_type": "diagram",
-                    "description": "Among ¬D, highlight 495 false positives (5% of 9,900) in green outline",
+                    "description": "Trong nhóm ¬D, tô viền 495 ca dương tính giả (5% của 9.900) bằng màu xanh lá",
                     "target": "frequency_grid_FP",
                     "duration": 5.0,
-                    "parameters": {{"count": 495, "style": "outline", "color": "#22C55E"}}
-                }},
-                {{
+                    "parameters": {"count": 495, "style": "outline", "color": "#22C55E"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Hold to let counts sink in",
+                    "description": "Tạm dừng để người xem ghi nhớ các con số",
                     "target": "narration_pause_11",
                     "duration": 3.0,
-                    "parameters": {{}}
-                }}
+                    "parameters": {}
+                }
             ],
             "scene_dependencies": ["intro_context", "equation_intro", "tree_diagram"]
-        }},
-        {{
+        },
+        {
             "id": "posterior_compute",
-            "title": "Compute P(D|+)",
-            "description": "Compute the posterior step-by-step using the same counts and Bayes' formula.",
+            "title": "Tính toán P(D|+)",
+            "description": "Tính xác suất hậu nghiệm từng bước bằng cùng dữ liệu và công thức Bayes.",
             "sub_concept_id": "posterior_computation",
             "actions": [
-                {{
+                {
                     "action_type": "write",
                     "element_type": "math_equation",
-                    "description": "Substitute numeric values into Bayes' formula",
+                    "description": "Thay giá trị số vào công thức Bayes",
                     "target": "substitution",
                     "duration": 5.0,
-                    "parameters": {{"equation": "P(D\\mid +)=\\frac{{0.90\\times 0.01}}{{0.90\\times 0.01 + 0.05\\times 0.99}}", "color": "#FFFFFF"}}
-                }},
-                {{
+                    "parameters": {"equation": "P(D\\mid +)=\\frac{0.90\\times 0.01}{0.90\\times 0.01 + 0.05\\times 0.99}", "color": "#FFFFFF"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Pause for narrator before simplifying",
+                    "description": "Tạm dừng để người dẫn giải thích trước khi rút gọn",
                     "target": "narration_pause_12",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }},
-                {{
+                    "parameters": {}
+                },
+                {
                     "action_type": "transform",
                     "element_type": "math_equation",
-                    "description": "Simplify numerators and denominators",
+                    "description": "Rút gọn tử số và mẫu số",
                     "target": "substitution",
                     "duration": 4.0,
-                    "parameters": {{"to_equation": "P(D\\mid +)=\\frac{{0.009}}{{0.009+0.0495}}", "color": "#FFFFFF", "easing": "ease_in_out"}}
-                }},
-                {{
+                    "parameters": {"to_equation": "P(D\\mid +)=\\frac{0.009}{0.009+0.0495}", "color": "#FFFFFF", "easing": "ease_in_out"}
+                },
+                {
                     "action_type": "wait",
                     "element_type": "none",
-                    "description": "Pause before final result",
+                    "description": "Tạm dừng trước khi ra kết quả cuối cùng",
                     "target": "narration_pause_13",
                     "duration": 2.0,
-                    "parameters": {{}}
-                }}
+                    "parameters": {}
+                }
             ],
             "scene_dependencies": ["intro_context", "equation_intro", "tree_diagram", "frequency_view"]
-        }}
+        }
     ]
 }}
 """
@@ -664,90 +674,19 @@ NEVER use these (they CRASH):
 ═══════════════════════════════════════════════════════════════════════════════
 
 **OUTPUT**: Generate ONLY the Manim code in <manim> tags. No explanations.
-Follow the checklist above EXACTLY - every item matters."""
+Follow the checklist above EXACTLY - every item matters.
 
-    def _call_llm(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> str:
-        prompt = f"{system_prompt}\n\nUser: {user_message}"
-        for attempt in range(max_retries):
-            try:
-                response = self.gemini_model.generate_content(
-                    prompt,
-                    generation_config={"temperature": temperature}
-                )
-                return response.text.strip()
-            except Exception as e:
-                self.logger.warning(f"Gemini API error on attempt {attempt+1}: {e}")
-        raise ValueError("Failed to get valid response after retries")
-
-    def _call_llm_structured(self, system_prompt: str, user_message: str, temperature: float = 0.5, max_retries: int = 3) -> Dict:
-        prompt = f"{system_prompt}\n\nUser: {user_message}"
-        for attempt in range(max_retries):
-            try:
-                response = self.gemini_model.generate_content(
-                    prompt,
-                    generation_config={"temperature": temperature}
-                )
-                response_text = response.text.strip()
-                
-                # Remove code fences
-                if response_text.startswith('```json'):
-                    response_text = response_text[7:].strip()
-                if response_text.endswith('```'):
-                    response_text = response_text[:-3].strip()
-                
-                # Fix common LaTeX escape issues in JSON
-                # Replace single backslashes with double backslashes for LaTeX commands
-                # But be careful not to break valid JSON escapes like \n, \t, \"
-                response_text = self._fix_latex_escapes_in_json(response_text)
-                
-                return json.loads(response_text, strict=False)
-            except json.JSONDecodeError as e:
-                self.logger.warning(f"JSON parse error on attempt {attempt+1}: {e}")
-                # Log the problematic JSON for debugging
-                if attempt == max_retries - 1:
-                    self.logger.error(f"Failed JSON content (first 500 chars): {response_text[:500]}")
-            except Exception as e:
-                self.logger.warning(f"Gemini API error on attempt {attempt+1}: {e}")
-        raise ValueError("Failed to get valid JSON response after retries")
-    
-    def _fix_latex_escapes_in_json(self, text: str) -> str:
-        """Fix LaTeX escape sequences in JSON strings by escaping ALL backslashes"""
-        import re
-        
-        # Simple approach: Replace all single backslashes with double backslashes
-        # This works because:
-        # 1. LaTeX commands like \text need to be \\text in JSON
-        # 2. Valid JSON escapes like \n, \t, \" are preserved
-        # 3. Already escaped \\ becomes \\\\ which is fine
-        
-        # First, protect valid JSON escape sequences
-        # Valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
-        protected = {}
-        counter = 0
-        
-        # Protect valid JSON escapes
-        for escape in [r'\"', r'\\', r'\/', r'\b', r'\f', r'\n', r'\r', r'\t']:
-            placeholder = f"__JSON_ESCAPE_{counter}__"
-            protected[placeholder] = escape
-            text = text.replace(escape, placeholder)
-            counter += 1
-        
-        # Protect unicode escapes \uXXXX
-        text = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: f"__JSON_UNICODE_{m.group(1)}__", text)
-        
-        # Now escape all remaining single backslashes
-        text = text.replace('\\', '\\\\')
-        
-        # Restore protected sequences
-        for placeholder, original in protected.items():
-            text = text.replace(placeholder, original)
-        
-        # Restore unicode escapes
-        text = re.sub(r'__JSON_UNICODE_([0-9a-fA-F]{4})__', r'\\u\1', text)
-        
-        return text
+**ADDITIONAL RULES FOR ACCURACY**:
+- Translate all text to Vietnamese: e.g., "Bayes' Theorem" → "Định lý Bayes", "Pause for narration" → "Tạm dừng để giải thích".
+- For LaTeX: ALWAYS use DOUBLE braces for ALL subscripts/superscripts/nested: e.g., F_{{n}} = F_{{n-1}} + F_{{n-2}}. NEVER use single braces.
+- For graphs: Always create axes = Axes() first, then graph = axes.plot(lambda x: ..., x_range=[-5, 5, 0.1], color=BLUE). Use 'plot' method.
+- Avoid TypeErrors: Never pass unexpected kwargs like 'font' to non-Text objects. ALL Text must have font='sans-serif'.
+- Checklist: No invalid methods; Double-check LaTeX; Use Vietnamese strings in Text/MathTex.
+"""
 
     def generate_animations(self, concept_analysis: ConceptAnalysis) -> AnimationResult:
+        profiler = cProfile.Profile()
+        profiler.enable()
         start_time = time.time()
         self.logger.info(f"Starting animation generation for concept: {concept_analysis.main_concept}")
 
@@ -786,10 +725,14 @@ Follow the checklist above EXACTLY - every item matters."""
             )
 
             self.logger.info(f"Animation generation completed in {generation_time:.2f}s")
+            profiler.disable()
+            profiler.dump_stats('profile.stats')
             return result
 
         except Exception as e:
             self.logger.error(f"Animation generation failed: {e}")
+            profiler.disable()
+            profiler.dump_stats('profile.stats')
             return AnimationResult(
                 success=False,
                 concept_id=concept_analysis.main_concept.lower().replace(" ", "_"),
@@ -810,7 +753,7 @@ Follow the checklist above EXACTLY - every item matters."""
                 system_prompt=self.SCENE_PLANNING_PROMPT,
                 user_message=user_message,
                 temperature=self.config.temperature,
-                max_retries=3
+                max_retries=5  # Increased retries
             )
             scene_plans = [ScenePlan(**plan_data) for plan_data in response_json.get("scene_plans", [])]
             return scene_plans, response_json
@@ -828,6 +771,7 @@ Follow the checklist above EXACTLY - every item matters."""
         self.logger.info(f"Raw scene plans output saved to {filepath}")
         return filepath
 
+    @_memory.cache
     def _generate_scene_codes(self, scene_plans: List[ScenePlan]) -> List[ManimSceneCode]:
         scene_codes = []
         self.logger.info(f"Starting parallel code generation for {len(scene_plans)} scenes")
@@ -837,7 +781,6 @@ Follow the checklist above EXACTLY - every item matters."""
                 self.logger.info(f"Generating code for scene: {scene_plan.title}")
                 class_name = self._sanitize_class_name(scene_plan.id)
                 
-                # Convert scene_plan to dict - try model_dump() first, fallback to dict()
                 try:
                     scene_plan_dict = scene_plan.model_dump()
                 except AttributeError:
@@ -853,7 +796,7 @@ Follow the checklist above EXACTLY - every item matters."""
                     system_prompt=formatted_prompt,
                     user_message="Generate the Manim code for the scene plan specified above.",
                     temperature=self.config.temperature,
-                    max_retries=3
+                    max_retries=5  # Increased
                 )
                 manim_code, extraction_method = self._extract_manim_code(response)
                 if manim_code:
@@ -874,7 +817,7 @@ Follow the checklist above EXACTLY - every item matters."""
                 self.logger.error(f"Traceback: {traceback.format_exc()}")
                 return None
 
-        with ThreadPoolExecutor(max_workers=min(len(scene_plans), 10)) as executor:
+        with ThreadPoolExecutor(max_workers=20) as executor:  # Increased workers
             future_to_plan = {executor.submit(generate_single_scene_code, plan): plan for plan in scene_plans}
             for future in as_completed(future_to_plan):
                 result = future.result()
@@ -911,80 +854,40 @@ Follow the checklist above EXACTLY - every item matters."""
         return "", "failed"
 
     def _clean_manim_code(self, code: str) -> str:
-        # Remove backticks
         code = code.replace('`', '')
-        
-        # Remove python language markers
         code = re.sub(r'python\n', '', code, flags=re.IGNORECASE)
         code = re.sub(r'\npython', '', code, flags=re.IGNORECASE)
-        
-        # Remove code fences
         code = re.sub(r'^```.*\n', '', code, flags=re.MULTILINE)
         code = re.sub(r'\n```.*$', '', code, flags=re.MULTILINE)
-        
-        # Remove any stray </manim> tags that got into the code
         code = re.sub(r'</manim>', '', code, flags=re.IGNORECASE)
         code = re.sub(r'<manim>', '', code, flags=re.IGNORECASE)
-        
-        # Fix LaTeX single braces to double braces in MathTex/Tex strings
-        # Match r"..." or r'...' strings and fix LaTeX commands inside
         code = self._fix_latex_in_code(code)
-        
-        # Replace problematic Unicode characters
-        code = code.replace('¬', r'\neg')  # NOT symbol
-        code = code.replace('∩', r'\cap')  # Intersection
-        code = code.replace('∪', r'\cup')  # Union
-        code = code.replace('∈', r'\in')   # Element of
-        code = code.replace('∀', r'\forall')  # For all
-        code = code.replace('∃', r'\exists')  # Exists
-        
-        # Normalize whitespace
+        code = code.replace('¬', r'\neg')
+        code = code.replace('∩', r'\cap')
+        code = code.replace('∪', r'\cup')
+        code = code.replace('∈', r'\in')
+        code = code.replace('∀', r'\forall')
+        code = code.replace('∃', r'\exists')
         code = re.sub(r'\n{3,}', '\n\n', code)
         code = code.strip()
-        
+        code = code.encode('utf-8').decode('utf-8')  # Ensure UTF-8 for Vietnamese
+        # Auto-add font to Text if missing
+        code = re.sub(r'Text\(([^,]+)\)', r"Text(\1, font='sans-serif')", code)
+        # Replace get_graph with plot if present
+        code = code.replace('.get_graph(', '.plot(')
         return code
-    
+
     def _fix_latex_in_code(self, code: str) -> str:
-        """Fix LaTeX single braces to double braces - COMPREHENSIVE approach"""
-        
-        # Strategy: Multiple passes with different patterns to catch everything
-        max_iterations = 10  # More iterations for complex nested cases
-        
+        max_iterations = 20
         for iteration in range(max_iterations):
             original = code
-            
-            # Pass 1: Fix \command{content} where content has NO braces
-            code = re.sub(
-                r'\\([a-zA-Z]+)\{([^{}]+)\}',
-                r'\\\1{{\2}}',
-                code
-            )
-            
-            # Pass 2: Fix subscripts _{content}
-            code = re.sub(r'_\{([^{}]+)\}', r'_{{\1}}', code)
-            
-            # Pass 3: Fix superscripts ^{content}
-            code = re.sub(r'\^\{([^{}]+)\}', r'^{{\1}}', code)
-            
-            # Pass 4: Fix \command{content with spaces}
-            code = re.sub(
-                r'\\([a-zA-Z]+)\{([^{}]*?)\}',
-                r'\\\1{{\2}}',
-                code
-            )
-            
-            # Pass 5: Fix nested patterns like \frac{\frac{a}{b}}{c}
-            # This will gradually double-brace from inside out
-            code = re.sub(
-                r'\\([a-zA-Z]+)\{([^{}]*)\}',
-                r'\\\1{{\2}}',
-                code
-            )
-            
-            # If nothing changed in this iteration, we're done
+            code = re.sub(r'([_^])\{([^{}]+)\}', r'\1{{\2}}', code)
+            code = re.sub(r'\\([a-zA-Z]+)\{([^{}]*?)\}', r'\\\1{{\2}}', code)
+            code = re.sub(r'\\text\{([^{}]*?)\}', r'\\text{{\1}}', code)
+            code = re.sub(r'\\([a-zA-Z]+)\{([^{}]*)\}', r'\\\1{{\2}}', code)
             if code == original:
                 break
-        
+        code = code.replace('đ', r'\dj ')  # For Vietnamese accents if needed
         return code
 
     def _sanitize_class_name(self, scene_id: str) -> str:
@@ -1013,39 +916,68 @@ Follow the checklist above EXACTLY - every item matters."""
 
     def _render_scenes(self, scene_codes: List[ManimSceneCode]) -> List[RenderResult]:
         render_results = []
-        for scene_code in scene_codes:
-            self.logger.info(f"Rendering scene: {scene_code.scene_name}")
-            output_filename = f"{scene_code.scene_id}_{scene_code.scene_name}.mp4"
-            try:
+        with ThreadPoolExecutor(max_workers=20) as executor:  # Parallel rendering
+            future_to_code = {}
+            for scene_code in scene_codes:
+                output_filename = f"{scene_code.scene_id}_{scene_code.scene_name}.mp4"
+                future = executor.submit(self._render_single_scene, scene_code, output_filename)
+                future_to_code[future] = scene_code
+            for future in as_completed(future_to_code):
+                result = future.result()
+                render_results.append(result)
+        return render_results
+
+    def _render_single_scene(self, scene_code: ManimSceneCode, output_filename: str) -> RenderResult:
+        self.logger.info(f"Rendering scene: {scene_code.scene_name}")
+        try:
+            # Syntax check
+            ast.parse(scene_code.manim_code)
+            for attempt in range(self.config.max_retries_per_scene):
                 render_result = self.renderer.render(
                     manim_code=scene_code.manim_code,
                     scene_name=scene_code.scene_name,
                     output_filename=output_filename
                 )
-                result = RenderResult(
-                    scene_id=scene_code.scene_id,
-                    success=render_result.success,
-                    video_path=render_result.video_path,
-                    error_message=render_result.error_message,
-                    duration=render_result.duration,
-                    resolution=render_result.resolution,
-                    render_time=render_result.render_time
-                )
-                render_results.append(result)
-                if result.success:
-                    self.logger.info(f"Successfully rendered: {scene_code.scene_name}")
-                    self.logger.info(f"  Video path: {result.video_path}")
-                    self.logger.info(f"  Duration: {result.duration}s")
+                if render_result.success:
+                    break
                 else:
-                    self.logger.error(f"Failed to render {scene_code.scene_name}: {result.error_message}")
-            except Exception as e:
-                self.logger.error(f"Rendering failed for {scene_code.scene_name}: {e}")
-                render_results.append(RenderResult(
-                    scene_id=scene_code.scene_id,
-                    success=False,
-                    error_message=str(e)
-                ))
-        return render_results
+                    error_msg = render_result.error_message
+                    self.logger.warning(f"Render attempt {attempt+1} failed: {error_msg}. Regenerating code...")
+                    # Feedback to LLM for fix
+                    response = self._call_llm(
+                        system_prompt=self.CODE_GENERATION_PROMPT,
+                        user_message=f"Fix this error in the code: {error_msg}\nOriginal code:\n{scene_code.manim_code}",
+                        temperature=self.config.temperature,
+                        max_retries=3
+                    )
+                    new_code, _ = self._extract_manim_code(response)
+                    if new_code:
+                        scene_code.manim_code = new_code
+                    else:
+                        break
+            result = RenderResult(
+                scene_id=scene_code.scene_id,
+                success=render_result.success,
+                video_path=render_result.video_path,
+                error_message=render_result.error_message,
+                duration=render_result.duration,
+                resolution=render_result.resolution,
+                render_time=render_result.render_time
+            )
+            if result.success:
+                self.logger.info(f"Successfully rendered: {scene_code.scene_name}")
+                self.logger.info(f"  Video path: {result.video_path}")
+                self.logger.info(f"  Duration: {result.duration}s")
+            else:
+                self.logger.error(f"Failed to render {scene_code.scene_name}: {result.error_message}")
+            return result
+        except Exception as e:
+            self.logger.error(f"Rendering failed for {scene_code.scene_name}: {e}")
+            return RenderResult(
+                scene_id=scene_code.scene_id,
+                success=False,
+                error_message=str(e)
+            )
 
     def _concatenate_scenes(self, render_results: List[RenderResult]) -> Optional[Path]:
         if not render_results:
