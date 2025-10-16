@@ -805,30 +805,43 @@ class BayesIntro(Scene):
         return code
     
     def _fix_latex_in_code(self, code: str) -> str:
-        """Fix LaTeX single braces to double braces - SIMPLE BRUTE FORCE"""
+        """Fix LaTeX single braces to double braces - COMPREHENSIVE approach"""
         
-        # SIMPLEST APPROACH: Just replace ALL {x} patterns in LaTeX contexts
-        # Multiple passes to handle nested braces
+        # Strategy: Multiple passes with different patterns to catch everything
+        max_iterations = 10  # More iterations for complex nested cases
         
-        max_iterations = 5  # Prevent infinite loop
         for iteration in range(max_iterations):
             original = code
             
-            # Fix \command{...} patterns - match any word after backslash
-            # Use a simple pattern that matches \word{content}
+            # Pass 1: Fix \command{content} where content has NO braces
             code = re.sub(
-                r'\\([a-zA-Z]+)\{([^{}]+)\}',  # \word{content} where content has no braces
-                r'\\\1{{\2}}',  # \word{{content}}
+                r'\\([a-zA-Z]+)\{([^{}]+)\}',
+                r'\\\1{{\2}}',
                 code
             )
             
-            # Fix subscripts _{...}
+            # Pass 2: Fix subscripts _{content}
             code = re.sub(r'_\{([^{}]+)\}', r'_{{\1}}', code)
             
-            # Fix superscripts ^{...}
+            # Pass 3: Fix superscripts ^{content}
             code = re.sub(r'\^\{([^{}]+)\}', r'^{{\1}}', code)
             
-            # If nothing changed, we're done
+            # Pass 4: Fix \command{content with spaces}
+            code = re.sub(
+                r'\\([a-zA-Z]+)\{([^{}]*?)\}',
+                r'\\\1{{\2}}',
+                code
+            )
+            
+            # Pass 5: Fix nested patterns like \frac{\frac{a}{b}}{c}
+            # This will gradually double-brace from inside out
+            code = re.sub(
+                r'\\([a-zA-Z]+)\{([^{}]*)\}',
+                r'\\\1{{\2}}',
+                code
+            )
+            
+            # If nothing changed in this iteration, we're done
             if code == original:
                 break
         

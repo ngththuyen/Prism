@@ -198,10 +198,11 @@ class Pipeline:
                         progress_callback("Video composition failed", 1.0)
                 
                 # Step 6: Cleanup temporary files after successful composition
-                if video_result and video_result.success:
-                    if progress_callback:
-                        progress_callback("Cleaning up temporary files...", 1.0)
-                    self._cleanup_temp_files(animation_result, audio_result)
+                # TEMPORARILY DISABLED FOR DEBUGGING
+                # if video_result and video_result.success:
+                #     if progress_callback:
+                #         progress_callback("Cleaning up temporary files...", 1.0)
+                #     self._cleanup_temp_files(animation_result, audio_result)
             else:
                 video_result = None
 
