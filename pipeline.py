@@ -27,8 +27,8 @@ class Pipeline:
 
         # Initialize agents
         self.concept_interpreter = ConceptInterpreterAgent(
-            api_key=settings.openrouter_api_key,
-            base_url=settings.openrouter_base_url,
+            api_key=settings.google_api_key,
+            base_url="",
             model=settings.reasoning_model,
             reasoning_tokens=settings.interpreter_reasoning_tokens,
             reasoning_effort=settings.interpreter_reasoning_effort
@@ -48,8 +48,8 @@ class Pipeline:
         )
 
         self.manim_agent = ManimAgent(
-            api_key=settings.openrouter_api_key,
-            base_url=settings.openrouter_base_url,
+            api_key=settings.google_api_key,
+            base_url="",
             model=settings.reasoning_model,
             output_dir=settings.output_dir,
             config=animation_config,
@@ -314,12 +314,10 @@ class Pipeline:
         self.logger.info(f"Analysis saved to {filepath}")
         return filepath
     
-    # Phase 2-3 methods
-
     def _execute_manim_generation(self, analysis: ConceptAnalysis):
         """Phase 2: Generate Manim animations"""
         self.logger.info("Step 2: Animation Generation")
-        return self.manim_agent.execute(analysis)
+        return self.manim_agent.generate_animations(analysis)
 
     def _execute_script_generation(self, animation_path: str, target_language: str = "English"):
         """Phase 3: Generate narration script"""
