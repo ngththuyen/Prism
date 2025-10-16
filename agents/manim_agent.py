@@ -451,6 +451,54 @@ class ManimAgent(BaseAgent):
 
 
 # If executed directly for a smoke test, print validator behavior on sample text
+    def execute(self, *args, **kwargs):
+        """Concrete implementation of the abstract `execute` method required by BaseAgent.
+
+        This implementation is intentionally lightweight and backward compatible:
+        - If called with a `scene_plans` kwarg (List[ScenePlan]) it will generate codes for
+          those plans and return the list of ManimSceneCode objects.
+        - If called with a single `scene_plan` kwarg it will generate a single scene code.
+        - Otherwise it acts as a no-op that logs the call and returns None.
+
+        The goal is to preserve the original agent interface so your pipeline can
+        instantiate ManimAgent without becoming abstract; you can later override
+        this method with more specialized behavior if the pipeline expects it.
+        """
+        # Keep runtime imports local to avoid import cycles in some pipelines
+        logger.debug(f"ManimAgent.execute called with args={args} kwargs_keys={list(kwargs.keys())}")
+        # Handle explicit batch plans
+        scene_plans = None
+        if 'scene_plans' in kwargs:
+            scene_plans = kwargs.get('scene_plans')
+        elif args:
+            # If first positional arg looks like a list of ScenePlan
+            first = args[0]
+            try:
+                if isinstance(first, list):
+                    scene_plans = first
+            except Exception:
+                scene_plans = None
+
+        if scene_plans is not None:
+            try:
+                return self.generate_codes_for_plans(scene_plans)
+            except Exception as e:
+                logger.error(f"execute: failed to generate codes for plans: {e}")
+                return None
+
+        # Handle single plan
+        if 'scene_plan' in kwargs:
+            try:
+                return self.generate_scene_code_for_plan(kwargs.get('scene_plan'))
+            except Exception as e:
+                logger.error(f"execute: failed to generate code for single plan: {e}")
+                return None
+
+        # Default fallback: nothing to do
+        logger.info("ManimAgent.execute called but no scene_plans/scene_plan provided — returning None")
+        return None
+
+
 if __name__ == '__main__':
     sample_bad = '''```python
 from manim import *
