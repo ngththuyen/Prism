@@ -805,28 +805,32 @@ class BayesIntro(Scene):
         return code
     
     def _fix_latex_in_code(self, code: str) -> str:
-        """Fix LaTeX single braces to double braces in raw strings"""
-        # Pattern to match raw strings: r"..." or r'...'
-        def fix_latex_string(match):
-            content = match.group(0)
-            # Fix common LaTeX patterns: \text{...} -> \text{{...}}
-            # But be careful not to break already correct {{...}}
-            
-            # Fix \text{word} but not \text{{word}}
-            content = re.sub(r'\\text\{([^{}]+)\}', r'\\text{{\1}}', content)
-            
-            # Fix subscripts/superscripts: _{x} -> _{{x}}, ^{x} -> ^{{x}}
-            # But not _{{x}} or ^{{x}}
-            content = re.sub(r'_\{([^{}]+)\}', r'_{{\1}}', content)
-            content = re.sub(r'\^\{([^{}]+)\}', r'^{{\1}}', content)
-            
-            # Fix \frac{a}{b} -> \frac{{a}}{{b}}
-            content = re.sub(r'\\frac\{([^{}]+)\}\{([^{}]+)\}', r'\\frac{{\1}}{{\2}}', content)
-            
-            return content
+        """Fix LaTeX single braces to double braces - SIMPLE BRUTE FORCE"""
         
-        # Match raw strings in Python code
-        code = re.sub(r'r["\'].*?["\']', fix_latex_string, code, flags=re.DOTALL)
+        # SIMPLEST APPROACH: Just replace ALL {x} patterns in LaTeX contexts
+        # Multiple passes to handle nested braces
+        
+        max_iterations = 5  # Prevent infinite loop
+        for iteration in range(max_iterations):
+            original = code
+            
+            # Fix \command{...} patterns - match any word after backslash
+            # Use a simple pattern that matches \word{content}
+            code = re.sub(
+                r'\\([a-zA-Z]+)\{([^{}]+)\}',  # \word{content} where content has no braces
+                r'\\\1{{\2}}',  # \word{{content}}
+                code
+            )
+            
+            # Fix subscripts _{...}
+            code = re.sub(r'_\{([^{}]+)\}', r'_{{\1}}', code)
+            
+            # Fix superscripts ^{...}
+            code = re.sub(r'\^\{([^{}]+)\}', r'^{{\1}}', code)
+            
+            # If nothing changed, we're done
+            if code == original:
+                break
         
         return code
 
